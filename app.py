@@ -7,11 +7,28 @@ from collections import Counter, defaultdict
 import random
 
 # ───────────────────────────────────────────────
-st.set_page_config(page_title="Slab Optimizer", layout="centered")
-st.title("🧱 Slab Cutting Optimizer (cm)")
+st.set_page_config(page_title="Slab Optimizer", layout="wide", initial_sidebar_state="expanded")
+st.title("🪵 Slab Cutting Optimizer")
+st.sidebar.title("⚙️ Settings")
 
-mode = st.radio("Select Material Type", ["Quartz (Standard Slabs)", "Granite (Custom Inventory Slabs)"])
-st.write("🔍 Current mode:", mode)  # Debugging display
+slab_mode = st.sidebar.radio("Slab Type", ["Quartz (Standard Slabs)", "Granite (Custom Inventory Slabs)"])
+dark_mode = st.sidebar.checkbox("🌙 Dark Mode", value=False)
+if dark_mode:
+    st.markdown("""
+        <style>
+            html, body, [class*="css"]  {
+                background-color: #0e1117;
+                color: #fafafa;
+            }
+            .stButton>button {
+                background-color: #262730;
+                color: white;
+            }
+        </style>
+    """, unsafe_allow_html=True)
+
+mode = slab_mode
+st.caption(f"Mode: {mode}")  # Debugging display
 
 st.markdown("""
 Enter your required pieces and slab sizes in **centimeters**.
@@ -21,7 +38,7 @@ This app finds the best slab combination that minimizes waste.
 # ───────────────────────────────────────────────
 # 1. Required Pieces Input
 # ───────────────────────────────────────────────
-st.subheader("1️⃣ Required Pieces (width x length in m)")
+st.subheader("Required Pieces")
 default_input = "65,253\n64,227\n64,73\n73,227\n73,314\n73,73\n8,166\n8,253\n16,83\n15,82"
 user_input = st.text_area("✏️ One piece per line. Format: width,length (in meters)", value=default_input)
 
@@ -46,7 +63,7 @@ slab_sizes = []
 slab_inventory = []
 
 if mode == "Quartz (Standard Slabs)":
-    st.subheader("2️⃣ Available Slab Sizes (toggle selection)")
+    st.subheader("Available Quartz Slab Sizes")
     standard_slabs = [(60, 320), (70, 320), (80, 320), (90, 320), (100, 320), (160, 320)]
 
     all_options = [f"{w}x{l}" for w, l in standard_slabs]
@@ -68,7 +85,7 @@ if mode == "Quartz (Standard Slabs)":
     #     except:
     #         st.error(f"❌ Invalid slab format in: {line}")
 else:
-    st.subheader("2️⃣ Granite Slab Inventory (custom sizes with quantity)")
+    st.subheader("Granite Slab Inventory")
     default_inventory = "124,312,1\n120,310,2\n116,298,1"
     user_inventory = st.text_area("✏️ Format: width,length,quantity", value=default_inventory)
 
@@ -101,8 +118,8 @@ if pieces:
 # 3. Optimization and Results
 # ───────────────────────────────────────────────
 if mode == "Quartz (Standard Slabs)":
-    st.subheader("3️⃣ Optimization Settings")
-    st.caption("ℹ️ You no longer need to adjust this — optimization will automatically use the smallest viable number of slabs.")
+    with st.expander("Optimization Settings", expanded=False):
+    st.caption("Automatically chooses the optimal number of slabs. No manual tuning required.")
     max_slabs = len(pieces)  # Automatically try up to the number of pieces
 else:
     max_slabs = len(slab_inventory)  # For granite, use all available slabs
@@ -193,6 +210,12 @@ if st.button("🚀 Run Optimization"):
                 best_packer = packer
 
     if best_result:
+        st.sidebar.markdown("---")
+        st.sidebar.subheader("📊 Summary")
+        st.sidebar.write(f"**Total waste:** {round(best_result['waste'], 2)} m²")
+        st.sidebar.write(f"**Slab area used:** {round(best_result['slab_area'] / 10000, 2)} m²")
+        st.sidebar.write(f"**Large slabs used (≥100 cm):** {best_result['large_slabs']}")
+
         st.success("✅ Optimization Successful!")
         summary = Counter(best_result["combo"])
         for (w, l), count in summary.items():
@@ -201,9 +224,13 @@ if st.button("🚀 Run Optimization"):
         st.markdown(f"💡 **Estimated total waste:** `{round(best_result['waste'], 2)} m²`")
         st.markdown(f"📦 **Large slabs used (≥100 cm wide)**: `{best_result['large_slabs']}`")
         st.markdown(f"📏 **Total slab area used**: `{round(best_result['slab_area'] / 10000, 2)} m²`")
+        slab_summary_txt = '
+'.join([f"{count} slab(s) of size {min(w, l)}x{max(w, l)} cm" for (w, l), count in summary.items()])
+        st.download_button("📤 Export slab summary", slab_summary_txt, file_name="slab_summary.txt")
 
         # Visualize Slab Layouts
-        st.subheader("📐 Slab Layout Visualizations")
+        st.markdown("---")
+st.subheader("Slab Layouts")
         bins_rects = defaultdict(list)
         for rect in best_packer.rect_list():
             bin_index, x, y, w, h, rid = rect
@@ -225,7 +252,7 @@ if st.button("🚀 Run Optimization"):
                 piece_w, piece_h = pieces[rid]
                 height, width = min(piece_w, piece_h), max(piece_w, piece_h)
                 label = f"{round(height)}x{round(width)}"
-                ax.text(x + w/2, y + h/2, label, ha='center', va='center', fontsize=8)
+                ax.text(x + w/2, y + h/2, label, ha='center', va='center', fontsize=9, weight='bold')
 
             ax.set_xlim(0, sw)
             ax.set_ylim(0, sh)
@@ -236,4 +263,5 @@ if st.button("🚀 Run Optimization"):
             st.pyplot(fig)
     else:
         st.error("❌ No valid slab combination found.")
+
 
