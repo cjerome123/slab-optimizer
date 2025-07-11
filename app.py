@@ -6,9 +6,9 @@ from itertools import combinations_with_replacement, permutations
 from collections import Counter, defaultdict
 import random
 
-# ───────────────────────────────────────────────────
+# ──────────────────────────────────────────────────
 st.set_page_config(page_title="Slab Optimizer", layout="wide", initial_sidebar_state="expanded")
-st.title("🩵 Slab Cutting Optimizer")
+st.title("🧥 Slab Cutting Optimizer")
 st.sidebar.title("⚙️ Settings")
 
 slab_mode = st.sidebar.radio("Slab Type", ["Quartz", "Granite"])
@@ -35,7 +35,7 @@ Enter your required pieces and slab sizes in **centimeters**.
 This app finds the best slab combination that minimizes waste.
 """)
 
-# ───────────────────────────────────────────────────
+# ──────────────────────────────────────────────────
 # 1. Required Pieces Input
 # ──────────────────────────────────────────────────
 st.subheader("Required Pieces")
@@ -59,14 +59,20 @@ if pieces:
 # [No change in slab inputs or optimization logic]
 # ...
 
-            ax.set_xlim(0, sw)
-            ax.set_ylim(0, sh)
-            ax.set_aspect('equal')
-            ax.axis('off')  # Hide all axis elements for cleaner view
-            plt.gca().invert_yaxis()
-            st.pyplot(fig)
-    else:
-        st.error("❌ No valid slab combination found.")
+# ──────────────────────────────────────────────────
+# Layout Drawing Placeholder (Ensure indentation is consistent)
+# ──────────────────────────────────────────────────
+fig, ax = plt.subplots(figsize=(10, 6))
+ax.set_xlim(0, sw)
+ax.set_ylim(0, sh)
+ax.set_aspect('equal')
+ax.axis('off')  # Hide all axis elements for cleaner view
+plt.gca().invert_yaxis()
+st.pyplot(fig)
+
+else:
+    st.error("❌ No valid slab combination found.")
+
 
 
 
