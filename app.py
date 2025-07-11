@@ -21,16 +21,17 @@ This app finds the best slab combination that minimizes waste.
 # ───────────────────────────────────────────────
 # 1. Required Pieces Input
 # ───────────────────────────────────────────────
-st.subheader("1️⃣ Required Pieces (width x length in cm)")
+st.subheader("1️⃣ Required Pieces (width x length in m)")
 default_input = "65,253\n64,227\n64,73\n73,227\n73,314\n73,73\n8,166\n8,253\n16,83\n15,82"
-user_input = st.text_area("✏️ One piece per line. Format: width,length", value=default_input)
+user_input = st.text_area("✏️ One piece per line. Format: width,length (in meters)", value=default_input)
 
 pieces = []
 for line in user_input.strip().splitlines():
     try:
         parts = line.replace('	', ' ').replace(',', ' ').split()
         w, l = map(float, parts[:2])
-        pieces.append((w, l))
+        w_cm, l_cm = w * 100, l * 100
+        pieces.append((w_cm, l_cm))
     except:
         st.error(f"❌ Invalid format in: {line}")
 
@@ -233,6 +234,7 @@ if st.button("🚀 Run Optimization"):
             st.pyplot(fig)
     else:
         st.error("❌ No valid slab combination found.")
+
 
 
 
