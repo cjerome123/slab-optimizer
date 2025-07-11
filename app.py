@@ -2,18 +2,19 @@ import streamlit as st
 from rectpack import newPacker
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
-from itertools import combinations_with_replacement
+from itertools import combinations_with_replacement, permutations
 from collections import Counter, defaultdict
 import random
 
 # ───────────────────────────────────────────────
-# Title and Instructions
-# ───────────────────────────────────────────────
 st.set_page_config(page_title="Slab Optimizer", layout="centered")
 st.title("🧱 Slab Cutting Optimizer (cm)")
+
+mode = st.radio("Select Material Type", ["Quartz (Standard Slabs)", "Granite (Custom Inventory Slabs)"])
+
 st.markdown("""
-Enter your required pieces and available slab sizes in **centimeters**.
-This app finds the best slab combination that minimizes cutting waste using 2D bin packing.
+Enter your required pieces and slab sizes in **centimeters**.
+This app finds the best slab combination that minimizes waste.
 """)
 
 # ───────────────────────────────────────────────
@@ -38,20 +39,34 @@ if pieces:
 # ───────────────────────────────────────────────
 # 2. Slab Sizes Input
 # ───────────────────────────────────────────────
-st.subheader("2️⃣ Available Slab Sizes (width x length in cm)")
-default_slabs = "60,320\n70,320\n80,320\n90,320\n100,320\n160,320"
-user_slabs = st.text_area("✏️ One slab size per line. Format: width,length", value=default_slabs)
+if mode == "Quartz (Standard Slabs)":
+    st.subheader("2️⃣ Available Slab Sizes (standard, unlimited)")
+    default_slabs = "60,320\n70,320\n80,320\n90,320\n100,320\n160,320"
+    user_slabs = st.text_area("✏️ One slab size per line. Format: width,length", value=default_slabs)
 
-slab_sizes = []
-for line in user_slabs.strip().splitlines():
-    try:
-        w, l = map(int, line.strip().split(','))
-        slab_sizes.append((w, l))
-    except:
-        st.error(f"❌ Invalid slab format in: {line}")
+    slab_sizes = []
+    for line in user_slabs.strip().splitlines():
+        try:
+            w, l = map(int, line.strip().split(','))
+            slab_sizes.append((w, l))
+        except:
+            st.error(f"❌ Invalid slab format in: {line}")
+else:
+    st.subheader("2️⃣ Granite Slab Inventory (custom sizes with quantity)")
+    default_inventory = "124,312,1\n120,310,2\n116,298,1"
+    user_inventory = st.text_area("✏️ Format: width,length,quantity", value=default_inventory)
+
+    slab_inventory = []
+    for line in user_inventory.strip().splitlines():
+        try:
+            w, l, qty = map(int, line.strip().split(','))
+            for _ in range(qty):
+                slab_inventory.append((w, l))
+        except:
+            st.error(f"❌ Invalid inventory format in: {line}")
 
 # ───────────────────────────────────────────────
-# 3. Settings and Run Button
+# 3. Optimization and Results
 # ───────────────────────────────────────────────
 st.subheader("3️⃣ Optimization Settings")
 max_slabs = st.slider("🔢 Max Number of Slabs to Combine", 1, 6, 3)
@@ -61,8 +76,46 @@ if st.button("🚀 Run Optimization"):
     best_packer = None
     min_waste = float('inf')
 
-    for num_slabs in range(1, max_slabs + 1):
-        for slab_combo in combinations_with_replacement(slab_sizes, num_slabs):
+    if mode == "Quartz (Standard Slabs)":
+        for num_slabs in range(1, max_slabs + 1):
+            for slab_combo in combinations_with_replacement(slab_sizes, num_slabs):
+                packer = newPacker(rotation=True)
+                for i, (w, h) in enumerate(pieces):
+                    packer.add_rect(w, h, rid=i)
+                for w, h in slab_combo:
+                    packer.add_bin(w, h)
+                packer.pack()
+
+                if len(packer.rect_list()) < len(pieces):
+                    continue
+
+                total_piece_area = sum(w * h for w, h in pieces)
+                total_slab_area = sum(w * h for w, h in slab_combo)
+                waste = total_slab_area - total_piece_area
+
+                num_large_slabs = sum(1 for w, _ in slab_combo if w >= 100)
+                is_better = False
+                if best_result is None:
+                    is_better = True
+                elif num_large_slabs < best_result["large_slabs"]:
+                    is_better = True
+                elif num_large_slabs == best_result["large_slabs"]:
+                    if total_slab_area < best_result["slab_area"]:
+                        is_better = True
+                    elif total_slab_area == best_result["slab_area"] and waste < min_waste:
+                        is_better = True
+
+                if is_better:
+                    min_waste = waste
+                    best_result = {
+                        "combo": slab_combo,
+                        "waste": waste / 10000,
+                        "large_slabs": num_large_slabs,
+                        "slab_area": total_slab_area
+                    }
+                    best_packer = packer
+    else:
+        for slab_combo in permutations(slab_inventory, len(slab_inventory)):
             packer = newPacker(rotation=True)
             for i, (w, h) in enumerate(pieces):
                 packer.add_rect(w, h, rid=i)
@@ -71,52 +124,44 @@ if st.button("🚀 Run Optimization"):
             packer.pack()
 
             if len(packer.rect_list()) < len(pieces):
-                continue  # not all pieces fit
+                continue
 
             total_piece_area = sum(w * h for w, h in pieces)
             total_slab_area = sum(w * h for w, h in slab_combo)
             waste = total_slab_area - total_piece_area
 
-            # Define ranking metrics
-num_large_slabs = sum(1 for w, _ in slab_combo if w >= 100)
-total_slab_area = sum(w * h for w, h in slab_combo)
+            num_large_slabs = sum(1 for w, _ in slab_combo if w >= 100)
+            is_better = False
+            if best_result is None:
+                is_better = True
+            elif num_large_slabs < best_result["large_slabs"]:
+                is_better = True
+            elif num_large_slabs == best_result["large_slabs"]:
+                if total_slab_area < best_result["slab_area"]:
+                    is_better = True
+                elif total_slab_area == best_result["slab_area"] and waste < min_waste:
+                    is_better = True
 
-# Compare current combo to best so far
-is_better = False
-if best_result is None:
-    is_better = True
-elif num_large_slabs < best_result["large_slabs"]:
-    is_better = True
-elif num_large_slabs == best_result["large_slabs"]:
-    if total_slab_area < best_result["slab_area"]:
-        is_better = True
-    elif total_slab_area == best_result["slab_area"] and waste < min_waste:
-        is_better = True
+            if is_better:
+                min_waste = waste
+                best_result = {
+                    "combo": slab_combo,
+                    "waste": waste / 10000,
+                    "large_slabs": num_large_slabs,
+                    "slab_area": total_slab_area
+                }
+                best_packer = packer
 
-if is_better:
-    min_waste = waste
-    best_result = {
-        "combo": slab_combo,
-        "waste": waste / 10000,
-        "large_slabs": num_large_slabs,
-        "slab_area": total_slab_area
-    }
-    best_packer = packer
-
-
-    # ───────────────────────────────────────────────
-    # Show Result
-    # ───────────────────────────────────────────────
     if best_result:
         st.success("✅ Optimization Successful!")
         summary = Counter(best_result["combo"])
         for (w, l), count in summary.items():
             st.write(f"- {count} slab(s) of size {w} x {l} cm")
         st.markdown(f"💡 **Estimated total waste:** `{best_result['waste']:.2f} m²`")
+        st.markdown(f"📦 **Large slabs used (≥100 cm wide)**: `{best_result['large_slabs']}`")
+        st.markdown(f"📏 **Total slab area used**: `{best_result['slab_area'] / 10000:.2f} m²`")
 
-        # ───────────────────────────────────────────────
-        # Draw Layouts
-        # ───────────────────────────────────────────────
+        # Visualize Slab Layouts
         st.subheader("📐 Slab Layout Visualizations")
         bins_rects = defaultdict(list)
         for rect in best_packer.rect_list():
@@ -141,4 +186,3 @@ if is_better:
             st.pyplot(fig)
     else:
         st.error("❌ No valid slab combination found.")
-
