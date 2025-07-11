@@ -28,7 +28,8 @@ user_input = st.text_area("✏️ One piece per line. Format: width,length", val
 pieces = []
 for line in user_input.strip().splitlines():
     try:
-        w, l = map(int, line.strip().split(','))
+        parts = line.replace('	', ' ').replace(',', ' ').split()
+        w, l = map(float, parts[:2])
         pieces.append((w, l))
     except:
         st.error(f"❌ Invalid format in: {line}")
@@ -72,7 +73,9 @@ else:
 
     for line in user_inventory.strip().splitlines():
         try:
-            w, l, qty = map(int, line.strip().split(','))
+            parts = line.replace('	', ' ').replace(',', ' ').split()
+            w, l, qty = map(float, parts[:3])
+            w, l, qty = int(w), int(l), int(qty)
             for _ in range(qty):
                 slab_inventory.append((w, l))
         except:
@@ -227,6 +230,7 @@ if st.button("🚀 Run Optimization"):
             st.pyplot(fig)
     else:
         st.error("❌ No valid slab combination found.")
+
 
 
 
