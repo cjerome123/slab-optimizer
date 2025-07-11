@@ -77,13 +77,32 @@ if st.button("🚀 Run Optimization"):
             total_slab_area = sum(w * h for w, h in slab_combo)
             waste = total_slab_area - total_piece_area
 
-            if waste < min_waste:
-                min_waste = waste
-                best_result = {
-                    "combo": slab_combo,
-                    "waste": waste / 10000  # to m²
-                }
-                best_packer = packer
+            # Define ranking metrics
+num_large_slabs = sum(1 for w, _ in slab_combo if w >= 100)
+total_slab_area = sum(w * h for w, h in slab_combo)
+
+# Compare current combo to best so far
+is_better = False
+if best_result is None:
+    is_better = True
+elif num_large_slabs < best_result["large_slabs"]:
+    is_better = True
+elif num_large_slabs == best_result["large_slabs"]:
+    if total_slab_area < best_result["slab_area"]:
+        is_better = True
+    elif total_slab_area == best_result["slab_area"] and waste < min_waste:
+        is_better = True
+
+if is_better:
+    min_waste = waste
+    best_result = {
+        "combo": slab_combo,
+        "waste": waste / 10000,
+        "large_slabs": num_large_slabs,
+        "slab_area": total_slab_area
+    }
+    best_packer = packer
+
 
     # ───────────────────────────────────────────────
     # Show Result
