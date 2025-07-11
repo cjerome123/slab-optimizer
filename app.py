@@ -209,13 +209,16 @@ if st.button("🚀 Run Optimization"):
             bins_rects[bin_index].append((x, y, w, h, rid))
 
         for bin_index, rects in bins_rects.items():
+            if bin_index >= len(best_result["combo"]):
+                continue  # skip invalid bins
             w_raw, l_raw = best_result["combo"][bin_index]
-            sh, sw = min(w_raw, l_raw), max(w_raw, l_raw)
+            sw, sh = max(w_raw, l_raw), min(w_raw, l_raw)
             fig, ax = plt.subplots(figsize=(8, 6))
             ax.set_title(f"Slab {bin_index+1} - {sh}x{sw} cm (height x width)")
-            ax.add_patch(patches.Rectangle((0, 0), sw, sh, edgecolor='black', facecolor='none', lw=2))
+            ax.add_patch(patches.Rectangle((0, 0), sw, sh, edgecolor='blue', facecolor='none', lw=2))
 
             for (x, y, w, h, rid) in rects:
+                w, h = max(w, h), min(w, h)
                 color = [random.random() for _ in range(3)]
                 ax.add_patch(patches.Rectangle((x, y), w, h, facecolor=color, edgecolor='black', lw=1, alpha=0.6))
                 piece_w, piece_h = pieces[rid]
@@ -230,6 +233,7 @@ if st.button("🚀 Run Optimization"):
             st.pyplot(fig)
     else:
         st.error("❌ No valid slab combination found.")
+
 
 
 
