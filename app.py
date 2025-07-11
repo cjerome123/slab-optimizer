@@ -215,7 +215,7 @@ if st.button("🚀 Run Optimization"):
             w_raw, l_raw = best_result["combo"][bin_index]
             sw, sh = max(w_raw, l_raw), min(w_raw, l_raw)
             fig, ax = plt.subplots(figsize=(8, 6))
-            ax.set_title(f"Slab {bin_index+1} - {round(sh)}x{round(sw)} cm (height x width)")
+            ax.set_title(f"Slab {bin_index+1} - {round(sh)}x{round(sw)} cm")
             ax.add_patch(patches.Rectangle((0, 0), sw, sh, edgecolor='blue', facecolor='none', lw=2))
 
             for (x, y, w, h, rid) in rects:
@@ -230,7 +230,10 @@ if st.button("🚀 Run Optimization"):
             ax.set_xlim(0, sw)
             ax.set_ylim(0, sh)
             ax.set_aspect('equal')
+            ax.set_xticks([])
+            ax.set_yticks([])
             plt.gca().invert_yaxis()
             st.pyplot(fig)
     else:
         st.error("❌ No valid slab combination found.")
+
