@@ -197,10 +197,10 @@ if st.button("🚀 Run Optimization"):
         summary = Counter(best_result["combo"])
         for (w, l), count in summary.items():
             height, width = min(w, l), max(w, l)
-            st.write(f"- {count} slab(s) of size {height}x{width} cm (height x width)")
-        st.markdown(f"💡 **Estimated total waste:** `{best_result['waste']:.2f} m²`")
+            st.write(f"- {count} slab(s) of size {round(height)}x{round(width)} cm (height x width)")
+        st.markdown(f"💡 **Estimated total waste:** `{round(best_result['waste'], 2)} m²`")
         st.markdown(f"📦 **Large slabs used (≥100 cm wide)**: `{best_result['large_slabs']}`")
-        st.markdown(f"📏 **Total slab area used**: `{best_result['slab_area'] / 10000:.2f} m²`")
+        st.markdown(f"📏 **Total slab area used**: `{round(best_result['slab_area'] / 10000, 2)} m²`")
 
         # Visualize Slab Layouts
         st.subheader("📐 Slab Layout Visualizations")
@@ -215,7 +215,7 @@ if st.button("🚀 Run Optimization"):
             w_raw, l_raw = best_result["combo"][bin_index]
             sw, sh = max(w_raw, l_raw), min(w_raw, l_raw)
             fig, ax = plt.subplots(figsize=(8, 6))
-            ax.set_title(f"Slab {bin_index+1} - {sh}x{sw} cm (height x width)")
+            ax.set_title(f"Slab {bin_index+1} - {round(sh)}x{round(sw)} cm (height x width)")
             ax.add_patch(patches.Rectangle((0, 0), sw, sh, edgecolor='blue', facecolor='none', lw=2))
 
             for (x, y, w, h, rid) in rects:
@@ -224,7 +224,7 @@ if st.button("🚀 Run Optimization"):
                 ax.add_patch(patches.Rectangle((x, y), w, h, facecolor=color, edgecolor='black', lw=1, alpha=0.6))
                 piece_w, piece_h = pieces[rid]
                 height, width = min(piece_w, piece_h), max(piece_w, piece_h)
-                label = f"{height}x{width}"
+                label = f"{round(height)}x{round(width)}"
                 ax.text(x + w/2, y + h/2, label, ha='center', va='center', fontsize=8)
 
             ax.set_xlim(0, sw)
@@ -234,15 +234,3 @@ if st.button("🚀 Run Optimization"):
             st.pyplot(fig)
     else:
         st.error("❌ No valid slab combination found.")
-
-
-
-
-
-
-
-
-
-
-
-
