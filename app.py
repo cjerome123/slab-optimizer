@@ -96,7 +96,7 @@ if st.button("🚀 Run Optimization"):
     if mode == "Quartz (Standard Slabs)":
         for num_slabs in range(1, max_slabs + 1):
             for slab_combo in combinations_with_replacement(slab_sizes, num_slabs):
-                packer = newPacker(rotation=True)
+                packer = newPacker(rotation=False)
                 for i, (w, h) in enumerate(pieces):
                     packer.add_rect(w, h, rid=i)
                 for w, h in slab_combo:
@@ -204,6 +204,7 @@ if st.button("🚀 Run Optimization"):
             st.pyplot(fig)
     else:
         st.error("❌ No valid slab combination found.")
+
 
 
 
