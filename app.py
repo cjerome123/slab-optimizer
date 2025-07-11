@@ -11,7 +11,9 @@ st.set_page_config(page_title="Slab Optimizer", layout="wide", initial_sidebar_s
 st.title("🪵 Slab Cutting Optimizer")
 st.sidebar.title("⚙️ Settings")
 
-slab_mode = st.sidebar.radio("Slab Type", ["Quartz (Standard Slabs)", "Granite (Custom Inventory Slabs)"])
+slab_mode = st.sidebar.radio("Slab Type", ["Quartz (Standard Slabs)", "Granite (Custom Inventory Slabs)"    f"{count} slab(s) of size {min(w, l)}x{max(w, l)} cm"
+    for (w, l), count in summary.items()
+])
 dark_mode = st.sidebar.checkbox("🌙 Dark Mode", value=False)
 if dark_mode:
     st.markdown("""
@@ -225,7 +227,7 @@ if st.button("🚀 Run Optimization"):
         st.markdown(f"📦 **Large slabs used (≥100 cm wide)**: `{best_result['large_slabs']}`")
         st.markdown(f"📏 **Total slab area used**: `{round(best_result['slab_area'] / 10000, 2)} m²`")
         slab_summary_txt = '
-'.join([
+'.join(['.join([
     f"{count} slab(s) of size {min(w, l)}x{max(w, l)} cm"
     for (w, l), count in summary.items()
 ]))
@@ -266,6 +268,7 @@ st.subheader("Slab Layouts")
             st.pyplot(fig)
     else:
         st.error("❌ No valid slab combination found.")
+
 
 
 
