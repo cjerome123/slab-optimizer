@@ -4,6 +4,8 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 from itertools import combinations_with_replacement
 from collections import defaultdict
+import pandas as pd
+from io import StringIO
 
 # ──────────────────────────────────────────────────
 # PAGE CONFIG
@@ -45,6 +47,13 @@ st.markdown("""
             background: #ffffff;
             box-shadow: 0 1px 2px rgba(0,0,0,0.1);
         }
+        .stTabs [data-baseweb="tab-list"] {
+            gap: 8px;
+        }
+        .stTabs [data-baseweb="tab"] {
+            padding: 8px 12px;
+            border-radius: 4px;
+        }
     </style>
 """, unsafe_allow_html=True)
 
@@ -59,9 +68,8 @@ st.markdown("<hr>", unsafe_allow_html=True)
 # ──────────────────────────────────────────────────
 with st.sidebar:
     st.subheader("Settings")
-    material_type = st.selectbox("Material Type", ["Quartz", "Granite", "Porcelain"])
-    st.caption("Pieces: meters | Slabs: centimeters")
-
+    material_type = st.radio("Material Type", ["Quartz", "Granite", "Porcelain"])
+    
 # ──────────────────────────────────────────────────
 # INPUT SECTIONS
 # ──────────────────────────────────────────────────
@@ -70,13 +78,12 @@ col1, col2 = st.columns(2)
 # REQUIRED PIECES (meters input)
 with col1:
     st.subheader("Required Pieces (m)")
-    default_pieces = """0.60,1.20
-0.60,1.50
-0.80,1.20
-0.90,1.80
-1.20,2.40
-0.60,1.80
-0.80,2.00"""
+    default_pieces = """0.65,2.53
+0.64,2.27
+0.64,0.73
+0.73,2.27
+0.73,3.14
+0.73,0.73"""
     
     pieces_input = st.text_area(
         "Enter one piece per line (width,length):",
@@ -84,13 +91,13 @@ with col1:
         height=200
     )
 
-    # Process pieces (convert meters to cm)
+    # Process pieces
     pieces = []
     for line in pieces_input.strip().splitlines():
         try:
             parts = line.replace('\t', ' ').replace(',', ' ').split()
             w, l = map(float, parts[:2])
-            pieces.append((w*100, l*100))  # Convert to cm
+            pieces.append((w*100, l*100))  # Convert meters to cm
         except ValueError:
             st.error(f"Invalid format: {line}")
 
@@ -98,37 +105,89 @@ with col1:
         total_area = sum(w * l for w, l in pieces) / 10000
         st.markdown(f"**Total required:** {total_area:.2f} m²")
 
-# AVAILABLE SLABS (cm input)
+# AVAILABLE SLABS (dynamic input based on material)
 with col2:
     st.subheader("Available Slabs (cm)")
-    standard_slabs = [
-        "60,120", "60,240", "60,300",
-        "70,120", "70,240", "70,300", 
-        "80,120", "80,240", "80,300",
-        "90,120", "90,240", "90,300",
-        "100,120", "100,240", "100,300",
-        "120,240", "120,300",
-        "150,300"
-    ]
     
-    slabs_input = st.text_area(
-        "Enter slab sizes (width,length):",
-        value="\n".join(standard_slabs),
-        height=200
-    )
+    if material_type == "Quartz":
+        st.caption("Standard quartz slab sizes:")
+        quartz_sizes = [
+            (60, 320), (70, 320), (80, 320),
+            (90, 320), (100, 320), (160, 320)
+        ]
+        
+        selected_sizes = st.multiselect(
+            "Select slab sizes:",
+            options=[f"{w}×{h} cm" for w, h in quartz_sizes],
+            default=[f"{w}×{h} cm" for w, h in quartz_sizes[:4]],
+            help="Standard quartz slab sizes"
+        )
+        
+        # Convert selected strings back to dimensions
+        slab_sizes = []
+        for size in selected_sizes:
+            w, h = map(float, size.split('×'))  # Split "60×320" into (60, 320)
+            slab_sizes.append((w, h))
+            
+    else:  # Granite or Porcelain
+        tab1, tab2 = st.tabs(["Manual Input", "Import from Excel"])
+        
+        with tab1:
+            default_slabs = """60,120
+90,240
+120,240
+150,300"""
+            
+            slabs_input = st.text_area(
+                f"Enter {material_type.lower()} slab sizes (width,length cm):",
+                value=default_slabs,
+                height=150
+            )
+            
+            # Process slabs from text
+            slab_sizes = []
+            for line in slabs_input.strip().splitlines():
+                try:
+                    parts = line.replace('\t', ' ').replace(',', ' ').split()
+                    w, l = map(float, parts[:2])
+                    slab_sizes.append((w, l))
+                except ValueError:
+                    st.error(f"Invalid format: {line}")
+        
+        with tab2:
+            uploaded_file = st.file_uploader(
+                f"Upload {material_type.lower()} slab sizes",
+                type=["xlsx", "csv", "txt"],
+                help="File should have width and length columns (in cm)"
+            )
+            
+            if uploaded_file:
+                try:
+                    if uploaded_file.name.endswith('.xlsx'):
+                        df = pd.read_excel(uploaded_file)
+                    else:
+                        df = pd.read_csv(uploaded_file)
+                    
+                    # Try to find width/length columns (case insensitive)
+                    w_col = next((col for col in df.columns if 'width' in col.lower()), None)
+                    l_col = next((col for col in df.columns if 'length' in col.lower()), None)
+                    
+                    if w_col and l_col:
+                        slab_sizes.extend(zip(df[w_col], df[l_col]))
+                        st.success(f"Successfully imported {len(df)} slab sizes")
+                    else:
+                        st.error("File must contain width and length columns")
+                except Exception as e:
+                    st.error(f"Error reading file: {str(e)}")
 
-    # Process slabs (keep in cm)
-    slab_sizes = []
-    for line in slabs_input.strip().splitlines():
-        try:
-            parts = line.replace('\t', ' ').replace(',', ' ').split()
-            w, l = map(float, parts[:2])
-            slab_sizes.append((w, l))
-        except ValueError:
-            st.error(f"Invalid format: {line}")
+    # Always display current slab sizes
+    if slab_sizes:
+        st.markdown("**Selected slab sizes:**")
+        for w, h in slab_sizes:
+            st.write(f"- {int(w)} × {int(h)} cm")
 
 # ──────────────────────────────────────────────────
-# OPTIMIZATION LOGIC
+# OPTIMIZATION LOGIC (unchanged from previous version)
 # ──────────────────────────────────────────────────
 st.markdown("<hr>", unsafe_allow_html=True)
 run_optimization = st.button("Generate Optimal Cutting Plan")
@@ -173,9 +232,8 @@ if run_optimization and pieces and slab_sizes:
         st.markdown("<hr>", unsafe_allow_html=True)
         
         # RESULTS SUMMARY
-        st.subheader("Optimal Slab Combination")
+        st.subheader(f"Optimal {material_type} Slab Combination")
         
-        # Detailed slab dimensions display
         for i, (w, h) in enumerate(best_result["combo"]):
             st.markdown(f"""
             **Slab {i+1}:** {int(w)} × {int(h)} cm  
@@ -198,7 +256,6 @@ if run_optimization and pieces and slab_sizes:
             bin_index, x, y, w, h, rid = rect
             bins_rects[bin_index].append((x, y, w, h, rid))
 
-        # Horizontal layout with slabs
         cols = st.columns(len(bins_rects))
         
         for bin_index, rects in bins_rects.items():
@@ -239,7 +296,7 @@ if run_optimization and pieces and slab_sizes:
             with cols[bin_index]:
                 st.pyplot(fig)
                 slab_waste = (slab_w*slab_h - sum(w*h for _,_,w,h,_ in rects))/10000
-                st.caption(f"🔄 Utilization: {sum(w*h for _,_,w,h,_ in rects)/(slab_w*slab_h)*100:.1f}%  ♻️ Waste: {slab_waste:.2f} m²")
+                st.caption(f"Utilization: {sum(w*h for _,_,w,h,_ in rects)/(slab_w*slab_h)*100:.1f}%  Waste: {slab_waste:.2f} m²")
 
     else:
         st.error("No valid combination found with current slabs")
@@ -249,6 +306,7 @@ elif run_optimization:
         st.error("Please enter required pieces first")
     if not slab_sizes:
         st.error("Please enter available slab sizes")
+
 
 
 
