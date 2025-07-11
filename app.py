@@ -98,11 +98,11 @@ if st.button("🚀 Run Optimization"):
             for slab_combo in combinations_with_replacement(slab_sizes, num_slabs):
                 packer = newPacker(rotation=False)
                 for i, (w_raw, h_raw) in enumerate(pieces):
-                    h, w = min(w_raw, h_raw), max(w_raw, h_raw)
-                    packer.add_rect(w, h, rid=i)
+                width, height = max(w_raw, h_raw), min(w_raw, h_raw)
+                packer.add_rect(width, height, rid=i)
                 for w_raw, h_raw in slab_combo:
-                    h, w = min(w_raw, h_raw), max(w_raw, h_raw)
-                    packer.add_bin(w, h)
+                width, height = max(w_raw, h_raw), min(w_raw, h_raw)
+                packer.add_bin(width, height)
                 packer.pack()
 
                 if len(packer.rect_list()) < len(pieces):
@@ -210,6 +210,7 @@ if st.button("🚀 Run Optimization"):
             st.pyplot(fig)
     else:
         st.error("❌ No valid slab combination found.")
+
 
 
 
