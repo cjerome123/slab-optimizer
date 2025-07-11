@@ -39,31 +39,49 @@ if not pieces_raw:
     st.error("❌ Invalid input.")
     st.stop()
 
-# --- Packing algorithm ---
+# --- Packing algorithm with rotation ---
 def pack_pieces(pieces, slab_w, slab_h):
     slabs = []
     current = []
     x_cursor = y_cursor = row_height = 0
 
     for pw, ph in pieces:
-        if pw > slab_w or ph > slab_h:
-            return None  # Cannot fit
+        orientations = [(pw, ph), (ph, pw)]
+        placed = False
 
-        if x_cursor + pw <= slab_w:
-            current.append((x_cursor, y_cursor, pw, ph))
-            x_cursor += pw
-            row_height = max(row_height, ph)
-        else:
-            y_cursor += row_height
-            if y_cursor + ph > slab_h:
-                slabs.append(current)
-                current = [(0, 0, pw, ph)]
-                x_cursor, y_cursor, row_height = pw, 0, ph
+        for ow, oh in orientations:
+            if ow > slab_w or oh > slab_h:
+                continue
+
+            if x_cursor + ow <= slab_w:
+                current.append((x_cursor, y_cursor, ow, oh))
+                x_cursor += ow
+                row_height = max(row_height, oh)
+                placed = True
+                break
             else:
-                x_cursor = 0
-                current.append((x_cursor, y_cursor, pw, ph))
-                x_cursor += pw
-                row_height = max(row_height, ph)
+                y_cursor += row_height
+                if y_cursor + oh > slab_h:
+                    break
+                else:
+                    x_cursor = 0
+                    current.append((x_cursor, y_cursor, ow, oh))
+                    x_cursor += ow
+                    row_height = max(row_height, oh)
+                    placed = True
+                    break
+
+        if not placed:
+            slabs.append(current)
+            current = []
+            x_cursor = y_cursor = row_height = 0
+            orientations = [(pw, ph), (ph, pw)]
+            for ow, oh in orientations:
+                if ow <= slab_w and oh <= slab_h:
+                    current.append((0, 0, ow, oh))
+                    x_cursor = ow
+                    row_height = oh
+                    break
 
     if current:
         slabs.append(current)
@@ -75,7 +93,7 @@ def evaluate_uniform_slab(args):
     slab_w, slab_hh = (SLAB_FIXED_LENGTH, slab_h) if orientation == "horizontal" else (slab_h, SLAB_FIXED_LENGTH)
     pieces = [(max(w, h), min(w, h)) if orientation == "horizontal" else (min(w, h), max(w, h)) for (w, h) in raw_pieces]
 
-    if any(pw > slab_w or ph > slab_hh for pw, ph in pieces):
+    if any(pw > slab_w and ph > slab_hh and ph > slab_w and pw > slab_hh for pw, ph in pieces):
         return None
 
     layout = pack_pieces(sorted(pieces, key=lambda x: x[0]*x[1], reverse=True), slab_w, slab_hh)
@@ -114,10 +132,6 @@ def try_mixed_layout(pieces):
         for slab_h in sorted(QUARTZ_SLAB_SIZES, reverse=True):
             slab_w = SLAB_FIXED_LENGTH
             slab_hh = slab_h
-            pw, ph = max(piece), min(piece)
-
-            if pw > slab_w or ph > slab_hh:
-                continue
 
             candidates = [piece] + [p for p in remaining if max(p) <= slab_w and min(p) <= slab_hh]
             packed = pack_pieces(candidates, slab_w, slab_hh)
@@ -182,6 +196,7 @@ else:
     for (sw, sh), slabs in result["layout"].items():
         for slab in slabs:
             visualize_slab(slab, sw, sh)
+
 
 
 
