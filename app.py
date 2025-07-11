@@ -44,9 +44,19 @@ slab_sizes = []
 slab_inventory = []
 
 if mode == "Quartz (Standard Slabs)":
-    st.subheader("2️⃣ Available Slab Sizes (standard, unlimited)")
-    default_slabs = "60,320\n70,320\n80,320\n90,320\n100,320\n160,320"
-    user_slabs = st.text_area("✏️ One slab size per line. Format: width,length", value=default_slabs)
+    st.subheader("2️⃣ Available Slab Sizes (toggle selection)")
+    standard_slabs = [(60, 320), (70, 320), (80, 320), (90, 320), (100, 320), (160, 320)]
+
+    all_options = [f"{w}x{l}" for w, l in standard_slabs]
+    enable_all = st.checkbox("✅ Select/Deselect All", value=True)
+
+    if enable_all:
+        selected_slabs = st.multiselect("Select slab sizes:", all_options, default=all_options, key="slab_selector")
+    else:
+        selected_slabs = st.multiselect("Select slab sizes:", all_options, key="slab_selector")
+    for slab in selected_slabs:
+        w, l = map(int, slab.split("x"))
+        slab_sizes.append((w, l))
 
     for line in user_slabs.strip().splitlines():
         try:
@@ -70,8 +80,11 @@ else:
 # ───────────────────────────────────────────────
 # 3. Optimization and Results
 # ───────────────────────────────────────────────
-st.subheader("3️⃣ Optimization Settings")
-max_slabs = st.slider("🔢 Max Number of Slabs to Combine", 1, 6, 3)
+if mode == "Quartz (Standard Slabs)":
+    st.subheader("3️⃣ Optimization Settings")
+    max_slabs = st.slider("🔢 Max Number of Slabs to Combine", 1, 6, 3)
+else:
+    max_slabs = len(slab_inventory)  # For granite, use all available slabs
 
 if st.button("🚀 Run Optimization"):
     best_result = None
@@ -188,3 +201,4 @@ if st.button("🚀 Run Optimization"):
             st.pyplot(fig)
     else:
         st.error("❌ No valid slab combination found.")
+
