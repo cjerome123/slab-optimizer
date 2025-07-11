@@ -2,20 +2,20 @@ import streamlit as st
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 
-# Available Quartz slab heights (shorter side), 320 cm is always the long side
+# Quartz slab heights (shorter side), fixed 320 cm for long side
 QUARTZ_SLAB_SIZES = [60, 70, 80, 90, 100, 160]
-SLAB_FIXED_LENGTH = 320  # cm
+SLAB_FIXED_LENGTH = 320  # cm (long side)
 
 st.set_page_config(page_title="Quartz Slab Optimizer", layout="wide")
 st.title("🪨 Quartz Slab Optimizer (Auto Orientation)")
 st.markdown("""
 Paste your required piece dimensions (in **meters**), one per line.  
-The system will auto-detect orientation and select the most efficient slab size.
+Format: `0.63 2.03` → the system auto-selects the best slab and orientation.
 """)
 
-# --- INPUT BOX ---
+# --- INPUT TEXT AREA ---
 input_text = st.text_area(
-    "Enter required pieces (e.g., `0.63 2.03`):",
+    "Enter required pieces below (e.g., `0.6 2.3`):",
     value="0.63 2.03\n0.13 0.63\n0.13 2.03",
     height=150
 )
@@ -27,7 +27,7 @@ for line in input_text.strip().split("\n"):
         numbers = list(map(float, line.strip().split()))
         if len(numbers) == 2:
             a, b = numbers
-            pieces_raw.append((a * 100, b * 100))  # Convert to cm
+            pieces_raw.append((a * 100, b * 100))  # convert to cm
     except:
         continue
 
@@ -35,9 +35,9 @@ if not pieces_raw:
     st.warning("Please input at least one valid dimension pair (e.g., `0.6 2.3`).")
     st.stop()
 
-# --- TRY ALL ORIENTATIONS & SLAB OPTIONS ---
+# --- PACKING FUNCTION ---
 def pack_pieces(pieces, slab_w, slab_h):
-    """Simple top-left packing algorithm (landscape layout)."""
+    """Basic top-left packing."""
     slabs = []
     current_slab = []
     x_cursor = 0
@@ -67,6 +67,7 @@ def pack_pieces(pieces, slab_w, slab_h):
         slabs.append(current_slab)
     return slabs
 
+# --- FIND BEST SLAB + ORIENTATION ---
 best_result = {
     "waste": float("inf"),
     "layout": None,
@@ -75,17 +76,16 @@ best_result = {
 }
 
 for slab_h in QUARTZ_SLAB_SIZES:
-    # Try both orientations
     for orientation in ["horizontal", "vertical"]:
         if orientation == "horizontal":
             usable_w, usable_h = SLAB_FIXED_LENGTH, slab_h
-            pieces = [(max(w, h), min(w, h)) for (w, h) in pieces_raw]  # Ensure wide first
+            pieces = [(max(w, h), min(w, h)) for (w, h) in pieces_raw]  # wide first
         else:
             usable_w, usable_h = slab_h, SLAB_FIXED_LENGTH
-            pieces = [(min(w, h), max(w, h)) for (w, h) in pieces_raw]  # Rotate
+            pieces = [(min(w, h), max(w, h)) for (w, h) in pieces_raw]  # tall first
 
-        layout = pack_pieces(sorted(pieces, key=lambda x: x[0]*x[1], reverse=True), usable_w, usable_h)
-        used_area = sum(w*h for _, _, w, h in sum(layout, []))
+        layout = pack_pieces(sorted(pieces, key=lambda x: x[0] * x[1], reverse=True), usable_w, usable_h)
+        used_area = sum(w * h for _, _, w, h in sum(layout, []))
         total_area = len(layout) * usable_w * usable_h
         waste = total_area - used_area
 
@@ -97,11 +97,14 @@ for slab_h in QUARTZ_SLAB_SIZES:
                 "orientation": orientation
             }
 
-# --- SHOW RESULTS ---
+# --- DISPLAY RESULTS ---
 slab_w, slab_h = best_result["slab_size"]
-st.subheader(f"📏 Recommended Slab Size: **{slab_w} x {slab_h} cm** ({best_result['orientation']})")
+smaller, larger = sorted([slab_w, slab_h])
+waste_sqm = best_result["waste"] / 10_000  # cm² to m²
+
+st.subheader(f"📏 Recommended Slab Size: **{int(smaller)} x {int(larger)} cm**")
 st.write(f"🔢 Total Slabs Needed: {len(best_result['layout'])}")
-st.write(f"🗑️ Estimated Waste Area: **{best_result['waste']:.0f} cm²**")
+st.write(f"🗑️ Estimated Waste Area: **{waste_sqm:.2f} m²**")
 
 # --- VISUALIZATION ---
 for i, slab in enumerate(best_result["layout"]):
@@ -117,3 +120,4 @@ for i, slab in enumerate(best_result["layout"]):
         ax.text(x + w / 2, y + h / 2, f"{int(w)}×{int(h)}", ha='center', va='center', fontsize=8, color='black')
 
     st.pyplot(fig)
+
