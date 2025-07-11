@@ -12,7 +12,6 @@ st.title("🪵 Slab Cutting Optimizer")
 st.sidebar.title("⚙️ Settings")
 
 slab_mode = st.sidebar.radio("Slab Type", ["Quartz (Standard Slabs)", "Granite (Custom Inventory Slabs)"])
-)
 dark_mode = st.sidebar.checkbox("🌙 Dark Mode", value=False)
 if dark_mode:
     st.markdown("""
@@ -120,7 +119,7 @@ if pieces:
 # ───────────────────────────────────────────────
 if mode == "Quartz (Standard Slabs)":
     with st.expander("Optimization Settings", expanded=False):
-    st.caption("Automatically chooses the optimal number of slabs. No manual tuning required.")
+        st.caption("Automatically chooses the optimal number of slabs. No manual tuning required.")
     max_slabs = len(pieces)  # Automatically try up to the number of pieces
 else:
     max_slabs = len(slab_inventory)  # For granite, use all available slabs
@@ -228,7 +227,7 @@ if st.button("🚀 Run Optimization"):
         
         # Visualize Slab Layouts
         st.markdown("---")
-st.subheader("Slab Layouts")
+        st.subheader("Slab Layouts")
         bins_rects = defaultdict(list)
         for rect in best_packer.rect_list():
             bin_index, x, y, w, h, rid = rect
@@ -261,6 +260,7 @@ st.subheader("Slab Layouts")
             st.pyplot(fig)
     else:
         st.error("❌ No valid slab combination found.")
+
 
 
 
