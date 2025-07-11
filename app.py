@@ -3,7 +3,7 @@ from rectpack import newPacker
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 from itertools import combinations_with_replacement
-from collections import Counter, defaultdict
+from collections import defaultdict
 import random
 
 # ──────────────────────────────────────────────────
@@ -40,7 +40,7 @@ This app finds the best slab combination that minimizes waste.
 # ──────────────────────────────────────────────────
 st.subheader("Required Pieces")
 default_input = "65,253\n64,227\n64,73\n73,227\n73,314\n73,73\n8,166\n8,253\n16,83\n15,82"
-user_input = st.text_area("✏️ One piece per line. Format: width,length (in cm)", value=default_input, height=150, label_visibility="visible")
+user_input = st.text_area("✏️ One piece per line. Format: width,length (in cm)", value=default_input, height=150)
 
 pieces = []
 for line in user_input.strip().splitlines():
@@ -48,8 +48,8 @@ for line in user_input.strip().splitlines():
         parts = line.replace('\t', ' ').replace(',', ' ').split()
         w, l = map(float, parts[:2])
         pieces.append((w, l))
-    except:
-        st.error(f"❌ Invalid format in: {line}")
+    except ValueError:
+        st.error(f"❌ Invalid format in: {line}. Please use the format width,length.")
 
 if pieces:
     total_area_cm2 = sum(w * l for w, l in pieces)
@@ -68,8 +68,8 @@ for line in slab_input.strip().splitlines():
         parts = line.replace('\t', ' ').replace(',', ' ').split()
         w, l = map(float, parts[:2])
         slab_sizes.append((w, l))
-    except:
-        st.error(f"❌ Invalid format in: {line}")
+    except ValueError:
+        st.error(f"❌ Invalid format in: {line}. Please use the format width,length.")
 
 # ──────────────────────────────────────────────────
 # Optimization and Layout Drawing
@@ -123,7 +123,7 @@ if st.button("🚀 Optimize"):
             for (x, y, w, h, rid) in rects:
                 color = [random.random() for _ in range(3)]
                 ax.add_patch(patches.Rectangle((x, y), w, h, facecolor=color, edgecolor='black', lw=1, alpha=0.6))
-                label = f"{int(h)}x{int(w)}"
+                label = f"{int(w)}x{int(h)}"
                 ax.text(x + w / 2, y + h / 2, label, ha='center', va='center', fontsize=8, color='black')
 
             ax.set_xlim(0, sw)
@@ -134,6 +134,7 @@ if st.button("🚀 Optimize"):
             st.pyplot(fig)
     else:
         st.error("❌ No valid slab combination found.")
+
 
 
 
