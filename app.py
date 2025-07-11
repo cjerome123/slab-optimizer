@@ -19,13 +19,14 @@ st.set_page_config(
 st.markdown("""
     <style>
         h1, h2, h3, h4, h5, h6, p, div, span {
-            color: #333333 !important;
+            color: #000000 !important;
         }
         .stMetric {
             background-color: white !important;
             border-radius: 8px;
             box-shadow: 0 2px 8px rgba(0,0,0,0.1);
             padding: 16px !important;
+            color: #000000 !important;
         }
         .stButton>button {
             background-color: #0068c9;
@@ -146,7 +147,7 @@ with col2:
                     st.error(f"Error reading file: {str(e)}")
 
 # ──────────────────────────────────────────────────
-# OPTIMIZATION LOGIC WITH VISUALIZATION + MULTIPROCESSING
+# OPTIMIZATION + FIXED VISUALIZATION
 # ──────────────────────────────────────────────────
 st.markdown("<hr>", unsafe_allow_html=True)
 run_optimization = st.button("Generate Cutting Plan")
@@ -181,7 +182,7 @@ if run_optimization and pieces and slab_sizes:
         all_combos = []
         for num_slabs in range(1, 4):
             all_combos.extend(list(combinations_with_replacement(slab_sizes, num_slabs)))
-        all_combos = all_combos[:300]  # Cap for performance
+        all_combos = all_combos[:300]
 
         with concurrent.futures.ThreadPoolExecutor() as executor:
             futures = [executor.submit(evaluate_combination, combo, pieces) for combo in all_combos]
@@ -212,6 +213,14 @@ if run_optimization and pieces and slab_sizes:
 
         for bin_index, rects in bins_rects.items():
             slab_w, slab_h = best_result["combo"][bin_index]
+
+            # Rotate slab to always be horizontal
+            if slab_h > slab_w:
+                slab_w, slab_h = slab_h, slab_w
+                rotate_slab = True
+            else:
+                rotate_slab = False
+
             fig, ax = plt.subplots(figsize=(8, 4))
             fig.patch.set_facecolor('white')
             ax.set_facecolor('white')
@@ -221,8 +230,12 @@ if run_optimization and pieces and slab_sizes:
             used_area = 0
             for i, (x, y, w, h, rid) in enumerate(rects):
                 used_ids.add(rid)
-                ax.add_patch(patches.Rectangle((x, y), w, h, facecolor=plt.cm.tab20(i % 20), edgecolor='#333', lw=1, alpha=0.9))
-                ax.text(x + w/2, y + h/2, f"{w}×{h}", ha='center', va='center', fontsize=8)
+
+                if rotate_slab:
+                    x, y, w, h = y, x, h, w
+
+                ax.add_patch(patches.Rectangle((x, y), w, h, facecolor=plt.cm.tab20(i % 20), edgecolor='black', lw=1, alpha=0.9))
+                ax.text(x + w/2, y + h/2, f"{w}×{h}", ha='center', va='center', fontsize=8, color='black')
                 used_area += w * h
 
             slab_area = slab_w * slab_h
@@ -243,7 +256,6 @@ if run_optimization and pieces and slab_sizes:
                 ({waste_pct:.1f}%)
                 """)
 
-        # Show Unfitted Pieces
         all_ids = set(range(len(pieces)))
         unfitted_ids = list(all_ids - used_ids)
         if unfitted_ids:
