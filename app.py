@@ -173,7 +173,7 @@ if st.button("🚀 Run Optimization"):
         st.success("✅ Optimization Successful!")
         summary = Counter(best_result["combo"])
         for (w, l), count in summary.items():
-            st.write(f"- {count} slab(s) of size {w} x {l} cm")
+            st.write(f"- {count} slab(s) of size {l}x{w} cm (height x width)")
         st.markdown(f"💡 **Estimated total waste:** `{best_result['waste']:.2f} m²`")
         st.markdown(f"📦 **Large slabs used (≥100 cm wide)**: `{best_result['large_slabs']}`")
         st.markdown(f"📏 **Total slab area used**: `{best_result['slab_area'] / 10000:.2f} m²`")
@@ -186,15 +186,15 @@ if st.button("🚀 Run Optimization"):
             bins_rects[bin_index].append((x, y, w, h, rid))
 
         for bin_index, rects in bins_rects.items():
-            sw, sh = best_result["combo"][bin_index]
-            fig, ax = plt.subplots(figsize=(6, 8))
-            ax.set_title(f"Slab {bin_index+1} - {sw} x {sh} cm")
+            sh, sw = best_result["combo"][bin_index]
+            fig, ax = plt.subplots(figsize=(8, 6))
+            ax.set_title(f"Slab {bin_index+1} - {sh}x{sw} cm (height x width)")
             ax.add_patch(patches.Rectangle((0, 0), sw, sh, edgecolor='black', facecolor='none', lw=2))
 
             for (x, y, w, h, rid) in rects:
                 color = [random.random() for _ in range(3)]
                 ax.add_patch(patches.Rectangle((x, y), w, h, facecolor=color, edgecolor='black', lw=1, alpha=0.6))
-                label = f"{pieces[rid][0]}x{pieces[rid][1]}"
+                label = f"{pieces[rid][1]}x{pieces[rid][0]}"
                 ax.text(x + w/2, y + h/2, label, ha='center', va='center', fontsize=8)
 
             ax.set_xlim(0, sw)
@@ -204,6 +204,7 @@ if st.button("🚀 Run Optimization"):
             st.pyplot(fig)
     else:
         st.error("❌ No valid slab combination found.")
+
 
 
 
