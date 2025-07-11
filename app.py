@@ -226,13 +226,7 @@ if st.button("🚀 Run Optimization"):
         st.markdown(f"💡 **Estimated total waste:** `{round(best_result['waste'], 2)} m²`")
         st.markdown(f"📦 **Large slabs used (≥100 cm wide)**: `{best_result['large_slabs']}`")
         st.markdown(f"📏 **Total slab area used**: `{round(best_result['slab_area'] / 10000, 2)} m²`")
-        slab_summary_txt = '
-'.join(['.join([
-    f"{count} slab(s) of size {min(w, l)}x{max(w, l)} cm"
-    for (w, l), count in summary.items()
-]))
-        st.download_button("📤 Export slab summary", slab_summary_txt, file_name="slab_summary.txt")
-
+        
         # Visualize Slab Layouts
         st.markdown("---")
 st.subheader("Slab Layouts")
@@ -268,6 +262,7 @@ st.subheader("Slab Layouts")
             st.pyplot(fig)
     else:
         st.error("❌ No valid slab combination found.")
+
 
 
 
