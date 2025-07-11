@@ -228,7 +228,7 @@ if st.button("🚀 Run Optimization"):
 '.join([
     f"{count} slab(s) of size {min(w, l)}x{max(w, l)} cm"
     for (w, l), count in summary.items()
-])
+]))
         st.download_button("📤 Export slab summary", slab_summary_txt, file_name="slab_summary.txt")
 
         # Visualize Slab Layouts
@@ -266,6 +266,7 @@ st.subheader("Slab Layouts")
             st.pyplot(fig)
     else:
         st.error("❌ No valid slab combination found.")
+
 
 
 
