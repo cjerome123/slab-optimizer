@@ -83,7 +83,8 @@ else:
 # ───────────────────────────────────────────────
 if mode == "Quartz (Standard Slabs)":
     st.subheader("3️⃣ Optimization Settings")
-    max_slabs = st.slider("🔢 Max Number of Slabs to Combine", 1, 6, 3)
+    st.caption("ℹ️ You no longer need to adjust this — optimization will automatically use the smallest viable number of slabs.")
+    max_slabs = len(pieces)  # Automatically try up to the number of pieces
 else:
     max_slabs = len(slab_inventory)  # For granite, use all available slabs
 
@@ -203,5 +204,6 @@ if st.button("🚀 Run Optimization"):
             st.pyplot(fig)
     else:
         st.error("❌ No valid slab combination found.")
+
 
 
