@@ -10,26 +10,32 @@ st.title("📏 Slab Cutting Optimizer")
 st.markdown("This app finds the best combination of slabs to cut all required pieces with minimal waste.")
 
 # User inputs
-st.subheader("1. Enter Required Pieces (width x length in meters)")
-default_input = "0.65,2.53\n0.64,2.27\n0.64,0.73\n0.73,2.27\n0.73,3.14\n0.73,0.73\n0.08,1.66\n0.08,2.53\n0.16,0.83\n0.15,0.82"
+st.subheader("1. Enter Required Pieces (width x length in cm)")
+default_input = "65,253\n64,227\n64,73\n73,227\n73,314\n73,73\n8,166\n8,253\n16,83\n15,82"
 user_input = st.text_area("Each line = one piece. Separate width & length with a comma.", value=default_input)
 
 pieces = []
 for line in user_input.strip().splitlines():
     try:
-        w, l = map(float, line.strip().split(','))
-        pieces.append((int(w * 100), int(l * 100)))  # convert to cm
+        w, l = map(int, line.strip().split(','))
+        pieces.append((w, l))
     except:
         st.error(f"Invalid format: {line}")
 
+
 # Slab sizes (you can allow custom input later)
-slab_sizes = [
-    (60, 320),
-    (70, 320),
-    (80, 320),
-    (90, 320),
-    (100, 320),
-    (160, 320)
+st.subheader("2. Enter Available Slab Sizes (width x length in cm)")
+default_slabs = "60,320\n70,320\n80,320\n90,320\n100,320\n160,320"
+user_slabs = st.text_area("Each line = one slab. Separate width & length with a comma.", value=default_slabs)
+
+slab_sizes = []
+for line in user_slabs.strip().splitlines():
+    try:
+        w, l = map(int, line.strip().split(','))
+        slab_sizes.append((w, l))
+    except:
+        st.error(f"Invalid slab format: {line}")
+
 ]
 
 st.subheader("2. Optimization Settings")
