@@ -5,13 +5,12 @@ import matplotlib.patches as patches
 from itertools import combinations_with_replacement
 from collections import defaultdict
 import pandas as pd
-from io import StringIO
 
 # ──────────────────────────────────────────────────
 # PAGE CONFIG
 # ──────────────────────────────────────────────────
 st.set_page_config(
-    page_title="Slab Optimizer Pro",
+    page_title="SlabCut Optimizer",
     layout="centered",
     initial_sidebar_state="expanded"
 )
@@ -58,17 +57,25 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ──────────────────────────────────────────────────
+# CONSTANTS
+# ──────────────────────────────────────────────────
+QUARTZ_SIZES = [
+    (60, 320), (70, 320), (80, 320),
+    (90, 320), (100, 320), (160, 320)
+]
+
+# ──────────────────────────────────────────────────
 # APP LAYOUT
 # ──────────────────────────────────────────────────
-st.title("Slab Cutting Optimizer")
+st.title("SlabCut Optimizer")
 st.markdown("<hr>", unsafe_allow_html=True)
 
 # ──────────────────────────────────────────────────
-# SIDEBAR SETTINGS
+# MATERIAL SELECTION
 # ──────────────────────────────────────────────────
 with st.sidebar:
-    st.subheader("Settings")
-    material_type = st.radio("Material Type", ["Quartz", "Granite", "Porcelain"])
+    st.subheader("Material Settings")
+    material_type = st.radio("Material Type", ["Quartz", "Granite"])
     
 # ──────────────────────────────────────────────────
 # INPUT SECTIONS
@@ -78,12 +85,11 @@ col1, col2 = st.columns(2)
 # REQUIRED PIECES (meters input)
 with col1:
     st.subheader("Required Pieces (m)")
-    default_pieces = """0.65,2.53
-0.64,2.27
-0.64,0.73
-0.73,2.27
-0.73,3.14
-0.73,0.73"""
+    default_pieces = """0.60,1.20
+0.60,1.50
+0.80,1.20
+0.90,1.80
+1.20,2.40"""
     
     pieces_input = st.text_area(
         "Enter one piece per line (width,length):",
@@ -91,45 +97,45 @@ with col1:
         height=200
     )
 
-    # Process pieces
+    # Process pieces (convert meters to cm)
     pieces = []
     for line in pieces_input.strip().splitlines():
         try:
             parts = line.replace('\t', ' ').replace(',', ' ').split()
             w, l = map(float, parts[:2])
-            pieces.append((w*100, l*100))  # Convert meters to cm
+            pieces.append((w*100, l*100))  # Convert to cm
         except ValueError:
             st.error(f"Invalid format: {line}")
 
     if pieces:
         total_area = sum(w * l for w, l in pieces) / 10000
-        st.markdown(f"**Total required:** {total_area:.2f} m²")
+        st.markdown(f"**Total required area:** {total_area:.2f} m²")
 
 # AVAILABLE SLABS (dynamic input based on material)
 with col2:
-    st.subheader("Available Slabs (cm)")
+    st.subheader("Available Slabs")
     
     if material_type == "Quartz":
         st.caption("Standard quartz slab sizes:")
-        quartz_sizes = [
-            (60, 320), (70, 320), (80, 320),
-            (90, 320), (100, 320), (160, 320)
-        ]
-        
-        selected_sizes = st.multiselect(
-            "Select slab sizes:",
-            options=[f"{w}×{h} cm" for w, h in quartz_sizes],
-            default=[f"{w}×{h} cm" for w, h in quartz_sizes[:4]],
-            help="Standard quartz slab sizes"
+        selected_formats = st.multiselect(
+            "Select slab sizes to use:",
+            options=[f"{w} × {h} cm" for w, h in QUARTZ_SIZES],
+            default=[f"{w} × {h} cm" for w, h in QUARTZ_SIZES[:4]],
+            help="Standard engineered quartz slab sizes"
         )
         
-        # Convert selected strings back to dimensions
+        # Parse selected sizes
         slab_sizes = []
-        for size in selected_sizes:
-            w, h = map(float, size.split('×'))  # Split "60×320" into (60, 320)
-            slab_sizes.append((w, h))
-            
-    else:  # Granite or Porcelain
+        for size in selected_formats:
+            try:
+                # Handle various input formats
+                cleaned = size.lower().replace('cm','').replace(' ','').replace('x','×')
+                w, h = map(float, cleaned.split('×'))
+                slab_sizes.append((w, h))
+            except Exception:
+                st.error(f"Could not parse size: {size}")
+                
+    else:  # Granite
         tab1, tab2 = st.tabs(["Manual Input", "Import from Excel"])
         
         with tab1:
@@ -139,9 +145,10 @@ with col2:
 150,300"""
             
             slabs_input = st.text_area(
-                f"Enter {material_type.lower()} slab sizes (width,length cm):",
+                "Enter granite slab sizes (width,length cm):",
                 value=default_slabs,
-                height=150
+                height=150,
+                help="One slab size per line"
             )
             
             # Process slabs from text
@@ -156,9 +163,9 @@ with col2:
         
         with tab2:
             uploaded_file = st.file_uploader(
-                f"Upload {material_type.lower()} slab sizes",
-                type=["xlsx", "csv", "txt"],
-                help="File should have width and length columns (in cm)"
+                "Upload slab sizes",
+                type=["xlsx", "csv"],
+                help="Excel/CSV with width and length columns (cm)"
             )
             
             if uploaded_file:
@@ -168,26 +175,25 @@ with col2:
                     else:
                         df = pd.read_csv(uploaded_file)
                     
-                    # Try to find width/length columns (case insensitive)
-                    w_col = next((col for col in df.columns if 'width' in col.lower()), None)
-                    l_col = next((col for col in df.columns if 'length' in col.lower()), None)
+                    # Flexible column name matching
+                    w_col = next((col for col in df.columns if 'width' in col.lower()), df.columns[0])
+                    l_col = next((col for col in df.columns if 'length' in col.lower()), df.columns[1])
                     
-                    if w_col and l_col:
-                        slab_sizes.extend(zip(df[w_col], df[l_col]))
-                        st.success(f"Successfully imported {len(df)} slab sizes")
-                    else:
-                        st.error("File must contain width and length columns")
+                    slab_sizes.extend([(w,h) for w,h in zip(df[w_col], df[l_col])])
+                    st.success(f"Imported {len(df)} slab sizes")
                 except Exception as e:
                     st.error(f"Error reading file: {str(e)}")
 
-    # Always display current slab sizes
+    # Display selected sizes
     if slab_sizes:
         st.markdown("**Selected slab sizes:**")
-        for w, h in slab_sizes:
+        for w, h in slab_sizes[:5]:  # Show first 5 to save space
             st.write(f"- {int(w)} × {int(h)} cm")
+        if len(slab_sizes) > 5:
+            st.write(f"- ...and {len(slab_sizes)-5} more")
 
 # ──────────────────────────────────────────────────
-# OPTIMIZATION LOGIC (unchanged from previous version)
+# OPTIMIZATION LOGIC
 # ──────────────────────────────────────────────────
 st.markdown("<hr>", unsafe_allow_html=True)
 run_optimization = st.button("Generate Optimal Cutting Plan")
@@ -198,20 +204,22 @@ if run_optimization and pieces and slab_sizes:
     min_waste = float('inf')
 
     with st.spinner("Calculating optimal slab combination..."):
-        for num_slabs in range(1, 4):  # Test combinations of 1-3 slabs
+        for num_slabs in range(1, 4):  # Try 1-3 slab combinations
             for slab_combo in combinations_with_replacement(slab_sizes, num_slabs):
                 packer = newPacker(rotation=False)
                 
+                # Add all pieces
                 for i, (w, h) in enumerate(pieces):
                     packer.add_rect(w, h, rid=i)
                 
+                # Add slabs
                 for w, h in slab_combo:
                     packer.add_bin(w, h)
                 
                 packer.pack()
 
                 if len(packer.rect_list()) < len(pieces):
-                    continue  # Skip if not all pieces fit
+                    continue  # Skip incomplete solutions
 
                 total_piece_area = sum(w * h for w, h in pieces)
                 total_slab_area = sum(w * h for w, h in slab_combo)
@@ -232,30 +240,27 @@ if run_optimization and pieces and slab_sizes:
         st.markdown("<hr>", unsafe_allow_html=True)
         
         # RESULTS SUMMARY
-        st.subheader(f"Optimal {material_type} Slab Combination")
+        st.subheader(f"Optimal {material_type} Solution")
         
-        for i, (w, h) in enumerate(best_result["combo"]):
-            st.markdown(f"""
-            **Slab {i+1}:** {int(w)} × {int(h)} cm  
-            &nbsp;&nbsp;&nbsp;&nbsp;Area: {w*h/10000:.2f} m²
-            """)
+        # Detailed slab info
+        cols = st.columns(3)
+        with cols[0]:
+            st.metric("Slabs Required", len(best_result["combo"]))
+        with cols[1]:
+            st.metric("Total Waste", f"{best_result['waste']:.2f} m²")
+        with cols[2]:
+            st.metric("Utilization Rate", f"{best_result['utilization']:.1f}%")
         
-        st.markdown(f"""
-        **Total:**  
-        - Slab area: {best_result['slab_area']:.2f} m²  
-        - Waste: {best_result['waste']:.2f} m²  
-        - Utilization: {best_result['utilization']:.1f}%
-        """)
-
         st.markdown("<hr>", unsafe_allow_html=True)
         
         # VISUALIZATION
-        st.subheader("Cutting Layout")
+        st.subheader("Cutting Layout (cm)")
         bins_rects = defaultdict(list)
         for rect in best_result["packer"].rect_list():
             bin_index, x, y, w, h, rid = rect
             bins_rects[bin_index].append((x, y, w, h, rid))
 
+        # Horizontal slab display
         cols = st.columns(len(bins_rects))
         
         for bin_index, rects in bins_rects.items():
@@ -266,26 +271,24 @@ if run_optimization and pieces and slab_sizes:
             ax.set_facecolor('white')
             
             # Draw slab
-            ax.add_patch(patches.Rectangle(
+            slab_rect = patches.Rectangle(
                 (0, 0), slab_w, slab_h,
-                edgecolor='#0068c9',
-                facecolor='#f0f7ff',
-                lw=1.5
-            ))
+                edgecolor='#0068c9', facecolor='#f0f7ff', lw=1.5
+            )
+            ax.add_patch(slab_rect)
             
             # Draw pieces
             for i, (x, y, w, h, _) in enumerate(rects):
-                ax.add_patch(patches.Rectangle(
+                piece_rect = patches.Rectangle(
                     (x, y), w, h,
                     facecolor=plt.cm.tab20(i % 20),
-                    edgecolor='#333',
-                    alpha=0.9,
-                    lw=0.5
-                ))
-                ax.text(x + w/2, y + h/2, 
-                       f"{int(w)}×{int(h)}", 
-                       ha='center', va='center',
-                       fontsize=8)
+                    edgecolor='#333', alpha=0.9, lw=0.5
+                )
+                ax.add_patch(piece_rect)
+                ax.text(
+                    x + w/2, y + h/2, f"{w}×{h}", 
+                    ha='center', va='center', fontsize=8
+                )
             
             ax.set_xlim(0, slab_w)
             ax.set_ylim(0, slab_h)
@@ -295,8 +298,14 @@ if run_optimization and pieces and slab_sizes:
             
             with cols[bin_index]:
                 st.pyplot(fig)
-                slab_waste = (slab_w*slab_h - sum(w*h for _,_,w,h,_ in rects))/10000
-                st.caption(f"Utilization: {sum(w*h for _,_,w,h,_ in rects)/(slab_w*slab_h)*100:.1f}%  Waste: {slab_waste:.2f} m²")
+                used_area = sum(w*h for _,_,w,h,_ in rects)
+                slab_waste_m2 = (slab_w * slab_h - used_area) / 10000
+                util_percent = used_area / (slab_w * slab_h) * 100
+                st.caption(f"""
+                **Slab {bin_index+1}:** {slab_w}×{slab_h} cm  
+                Waste: {slab_waste_m2:.2f} m²  
+                Utilized: {util_percent:.1f}%
+                """)
 
     else:
         st.error("No valid combination found with current slabs")
@@ -306,6 +315,7 @@ elif run_optimization:
         st.error("Please enter required pieces first")
     if not slab_sizes:
         st.error("Please enter available slab sizes")
+
 
 
 
