@@ -3,16 +3,17 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 from collections import defaultdict
 
-# Quartz slabs (height values in cm), fixed 320 cm long side
-QUARTZ_SLAB_SIZES = [60, 70, 80, 90, 100, 160]
-SLAB_FIXED_LENGTH = 320  # cm
+# --- Constants ---
+QUARTZ_SLAB_SIZES = [60, 70, 80, 90, 100, 160]  # heights in cm
+SLAB_FIXED_LENGTH = 320  # fixed long side in cm
 
+# --- Page Config ---
 st.set_page_config(page_title="Quartz Slab Optimizer", layout="wide")
-st.title("🪨 Quartz Slab Optimizer (Auto: Best Uniform or Mixed)")
-st.markdown("Paste dimensions like `0.65 2.53`, one per line.")
+st.title("🪨 Quartz Slab Optimizer (Auto: Uniform or Mixed)")
+st.markdown("Paste required dimensions in **meters** (e.g., `0.65 2.53` per line).")
 
-# --- INPUT AREA ---
-input_text = st.text_area("Required pieces (in meters):", value="""
+# --- Input ---
+input_text = st.text_area("Enter piece dimensions (one per line):", value="""
 0.65 2.53
 0.64 2.27
 0.64 0.73
@@ -25,25 +26,24 @@ input_text = st.text_area("Required pieces (in meters):", value="""
 0.15 0.82
 """, height=200)
 
-# --- PARSE INPUT ---
+# --- Parse Input ---
 pieces_raw = []
 for line in input_text.strip().split("\n"):
     try:
         a, b = map(float, line.strip().split())
-        pieces_raw.append((a * 100, b * 100))  # m to cm
+        pieces_raw.append((a * 100, b * 100))  # convert meters to cm
     except:
         continue
 
 if not pieces_raw:
-    st.warning("Invalid input. Use lines like `0.6 2.3`")
+    st.error("Please enter at least one valid dimension (e.g., `0.6 2.3`).")
     st.stop()
 
-# --- SHARED SLAB PACKING FUNCTION ---
+# --- Packing Function ---
 def pack_pieces(pieces, slab_w, slab_h):
-    """Greedy top-left packer for a single slab."""
     slabs = []
     current_slab = []
-    x_cursor, y_cursor, row_height = 0, 0, 0
+    x_cursor = y_cursor = row_height = 0
 
     for pw, ph in pieces:
         if x_cursor + pw <= slab_w:
@@ -66,7 +66,7 @@ def pack_pieces(pieces, slab_w, slab_h):
         slabs.append(current_slab)
     return slabs
 
-# --- MODE 1: UNIFORM SLAB SIZE TEST ---
+# --- Uniform Slab Strategy ---
 best_uniform = {
     "strategy": "Uniform",
     "slab_size": None,
@@ -77,20 +77,16 @@ best_uniform = {
 
 for slab_h in QUARTZ_SLAB_SIZES:
     for orientation in ["horizontal", "vertical"]:
-        if orientation == "horizontal":
-            slab_w, slab_hh = SLAB_FIXED_LENGTH, slab_h
-            pieces = [(max(w, h), min(w, h)) for (w, h) in pieces_raw]
-        else:
-            slab_w, slab_hh = slab_h, SLAB_FIXED_LENGTH
-            pieces = [(min(w, h), max(w, h)) for (w, h) in pieces_raw]
+        slab_w, slab_hh = (SLAB_FIXED_LENGTH, slab_h) if orientation == "horizontal" else (slab_h, SLAB_FIXED_LENGTH)
+        pieces = [(max(w, h), min(w, h)) if orientation == "horizontal" else (min(w, h), max(w, h)) for (w, h) in pieces_raw]
 
         if any(pw > slab_w or ph > slab_hh for pw, ph in pieces):
             continue
 
         layout = pack_pieces(sorted(pieces, key=lambda x: x[0] * x[1], reverse=True), slab_w, slab_hh)
-        used = sum(w * h for _, _, w, h in sum(layout, []))
-        total = len(layout) * slab_w * slab_hh
-        waste = total - used
+        used_area = sum(w * h for _, _, w, h in sum(layout, []))
+        total_area = len(layout) * slab_w * slab_hh
+        waste = total_area - used_area
 
         if waste < best_uniform["waste"]:
             best_uniform.update({
@@ -100,15 +96,14 @@ for slab_h in QUARTZ_SLAB_SIZES:
                 "slab_count": len(layout)
             })
 
-# --- MODE 2: MIXED SLABS ---
+# --- Mixed Slab Strategy ---
 def try_mixed_layout(pieces):
-    slabs_used = defaultdict(list)
-    remaining = sorted(pieces, key=lambda x: x[0]*x[1], reverse=True)
-    slab_usage = []
+    remaining = sorted(pieces, key=lambda x: x[0] * x[1], reverse=True)
+    layout = defaultdict(list)
 
     while remaining:
         piece = remaining.pop(0)
-        fit_found = False
+        fit = False
 
         for slab_h in sorted(QUARTZ_SLAB_SIZES, reverse=True):
             for orientation in ["horizontal", "vertical"]:
@@ -118,49 +113,43 @@ def try_mixed_layout(pieces):
                 if pw > slab_w or ph > slab_hh:
                     continue
 
-                # Try to pack current + others that fit
                 fit_group = [piece]
                 leftovers = []
 
-                for p in remaining:
-                    tw, th = (max(p), min(p)) if orientation == "horizontal" else (min(p), max(p))
+                for other in remaining:
+                    tw, th = (max(other), min(other)) if orientation == "horizontal" else (min(other), max(other))
                     if tw <= slab_w and th <= slab_hh:
                         fit_group.append((tw, th))
                     else:
-                        leftovers.append(p)
+                        leftovers.append(other)
 
-                layout = pack_pieces(fit_group, slab_w, slab_hh)
-                used = sum(w*h for _, _, w, h in sum(layout, []))
-                waste = slab_w * slab_hh * len(layout) - used
-
-                if layout:
-                    slabs_used[(slab_w, slab_hh)].append(layout[0])  # Just record 1 slab per group
+                packed = pack_pieces(fit_group, slab_w, slab_hh)
+                if packed:
+                    layout[(slab_w, slab_hh)].append(packed[0])
                     remaining = leftovers
-                    fit_found = True
+                    fit = True
                     break
-            if fit_found:
+            if fit:
                 break
 
-        if not fit_found:
-            return None  # At least one piece couldn't be fit
+        if not fit:
+            return None
 
-    # Flatten and measure waste
-    total_slabs = sum(len(v) for v in slabs_used.values())
-    total_area = sum(w * h * len(slabs) for (w, h), slabs in slabs_used.items())
-    used_area = sum(w * h for _, _, w, h in sum([sum(v, []) for v in slabs_used.values()], []))
-    total_waste = total_area - used_area
+    used_area = sum(w * h for _, _, w, h in sum([sum(l, []) for l in layout.values()], []))
+    total_area = sum(w * h * len(l) for (w, h), l in layout.items())
+    waste = total_area - used_area
+    count = sum(len(l) for l in layout.values())
 
     return {
         "strategy": "Mixed",
-        "slab_size": None,
-        "layout": slabs_used,
-        "waste": total_waste,
-        "slab_count": total_slabs
+        "layout": layout,
+        "waste": waste,
+        "slab_count": count
     }
 
 best_mixed = try_mixed_layout([(max(w, h), min(w, h)) for (w, h) in pieces_raw]) or {"waste": float("inf")}
 
-# --- DECIDE BEST OVERALL ---
+# --- Choose Best Strategy ---
 if best_uniform["waste"] <= best_mixed["waste"]:
     result = best_uniform
     strategy = "Uniform"
@@ -168,47 +157,43 @@ else:
     result = best_mixed
     strategy = "Mixed"
 
-# --- DISPLAY RESULT ---
-st.subheader(f"📦 Strategy: **{strategy} Slabs**")
+# --- Show Result Summary ---
+st.subheader(f"📦 Strategy: **{strategy} Slab Usage**")
+st.write(f"🔢 Total Slabs Used: **{result['slab_count']}**")
+st.write(f"🗑️ Estimated Waste: **{result['waste'] / 10_000:.2f} m²**")
+
 if strategy == "Uniform":
     sw, sh = result["slab_size"]
     smaller, larger = sorted([sw, sh])
-    st.markdown(f"📏 Slab Size Used: **{int(smaller)} x {int(larger)} cm**")
+    st.write(f"📏 Recommended Slab Size: **{int(smaller)} x {int(larger)} cm**")
 else:
-    slab_list = ', '.join([f"{min(k)}×{max(k)} ({len(v)})" for k, v in result["layout"].items()])
-    st.markdown(f"📏 Slabs Used: {slab_list}")
+    slab_list = ', '.join([f"{min(s)}×{max(s)} ({len(l)})" for s, l in result["layout"].items()])
+    st.write(f"📏 Slabs Used: {slab_list}")
 
-waste_sqm = result["waste"] / 10_000
-st.write(f"🔢 Total Slabs: **{result['slab_count']}**")
-st.write(f"🗑️ Waste: **{waste_sqm:.2f} m²**")
+# --- Visualization ---
+def visualize_slab(slab_data, slab_w, slab_h):
+    fig, ax = plt.subplots(figsize=(12, 3))
+    ax.set_xlim(0, slab_w)
+    ax.set_ylim(0, slab_h)
+    ax.set_aspect('auto')
+    ax.axis('off')
 
-# --- VISUALIZATION ---
+    for x, y, w, h in slab_data:
+        rect = patches.Rectangle((x, y), w, h, linewidth=1, edgecolor='black', facecolor='skyblue')
+        ax.add_patch(rect)
+        ax.text(x + w / 2, y + h / 2, f"{int(w)}×{int(h)}", ha='center', va='center', fontsize=8)
+
+    st.pyplot(fig)
+
 if strategy == "Uniform":
     sw, sh = result["slab_size"]
-    for i, slab in enumerate(result["layout"]):
-        fig, ax = plt.subplots(figsize=(12, 3))
-        ax.set_xlim(0, sw)
-        ax.set_ylim(0, sh)
-        ax.set_aspect('auto')
-        ax.axis('off')
-        for x, y, w, h in slab:
-            rect = patches.Rectangle((x, y), w, h, linewidth=1, edgecolor='black', facecolor='skyblue')
-            ax.add_patch(rect)
-            ax.text(x + w/2, y + h/2, f"{int(w)}×{int(h)}", ha='center', va='center', fontsize=8)
-        st.pyplot(fig)
+    for slab in result["layout"]:
+        visualize_slab(slab, sw, sh)
 else:
     for (sw, sh), slabs in result["layout"].items():
         for slab in slabs:
-            fig, ax = plt.subplots(figsize=(12, 3))
-            ax.set_xlim(0, sw)
-            ax.set_ylim(0, sh)
-            ax.set_aspect('auto')
-            ax.axis('off')
-            for x, y, w, h in slab:
-                rect = patches.Rectangle((x, y), w, h, linewidth=1, edgecolor='black', facecolor='skyblue')
-                ax.add_patch(rect)
-                ax.text(x + w/2, y + h/2, f"{int(w)}×{int(h)}", ha='center', va='center', fontsize=8)
-            st.pyplot(fig)
+            visualize_slab(slab, sw, sh)
+
 
 
 
