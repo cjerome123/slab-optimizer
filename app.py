@@ -239,8 +239,7 @@ if run_optimization and pieces and slab_sizes:
             with cols[bin_index]:
                 st.pyplot(fig)
                 slab_waste = (slab_w*slab_h - sum(w*h for _,_,w,h,_ in rects))/10000
-                st.caption(f"🔄 Utilization: {sum(w*h for _,_,w,h,_ in rects)/(slab_w*slab_h)*100:.1f}%  
-                           ♻️ Waste: {slab_waste:.2f} m²")
+                st.caption(f"🔄 Utilization: {sum(w*h for _,_,w,h,_ in rects)/(slab_w*slab_h)*100:.1f}%  ♻️ Waste: {slab_waste:.2f} m²")
 
     else:
         st.error("No valid combination found with current slabs")
@@ -250,6 +249,7 @@ elif run_optimization:
         st.error("Please enter required pieces first")
     if not slab_sizes:
         st.error("Please enter available slab sizes")
+
 
 
 
