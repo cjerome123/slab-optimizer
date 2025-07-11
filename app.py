@@ -11,6 +11,7 @@ st.set_page_config(page_title="Slab Optimizer", layout="centered")
 st.title("🧱 Slab Cutting Optimizer (cm)")
 
 mode = st.radio("Select Material Type", ["Quartz (Standard Slabs)", "Granite (Custom Inventory Slabs)"])
+st.write("🔍 Current mode:", mode)  # Debugging display
 
 st.markdown("""
 Enter your required pieces and slab sizes in **centimeters**.
@@ -39,12 +40,14 @@ if pieces:
 # ───────────────────────────────────────────────
 # 2. Slab Sizes Input
 # ───────────────────────────────────────────────
+slab_sizes = []
+slab_inventory = []
+
 if mode == "Quartz (Standard Slabs)":
     st.subheader("2️⃣ Available Slab Sizes (standard, unlimited)")
     default_slabs = "60,320\n70,320\n80,320\n90,320\n100,320\n160,320"
     user_slabs = st.text_area("✏️ One slab size per line. Format: width,length", value=default_slabs)
 
-    slab_sizes = []
     for line in user_slabs.strip().splitlines():
         try:
             w, l = map(int, line.strip().split(','))
@@ -56,7 +59,6 @@ else:
     default_inventory = "124,312,1\n120,310,2\n116,298,1"
     user_inventory = st.text_area("✏️ Format: width,length,quantity", value=default_inventory)
 
-    slab_inventory = []
     for line in user_inventory.strip().splitlines():
         try:
             w, l, qty = map(int, line.strip().split(','))
