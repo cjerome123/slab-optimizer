@@ -79,6 +79,21 @@ else:
             st.error(f"❌ Invalid inventory format in: {line}")
 
 # ───────────────────────────────────────────────
+# 2.5. Pre-check: Any pieces too large for all slabs?
+# ───────────────────────────────────────────────
+if pieces:
+    all_slabs = slab_sizes if mode == "Quartz (Standard Slabs)" else slab_inventory
+    too_large_pieces = []
+    for w, l in pieces:
+        fits = any((w <= sw and l <= sl) or (l <= sw and w <= sl) for sw, sl in all_slabs)
+        if not fits:
+            too_large_pieces.append((w, l))
+    if too_large_pieces:
+        st.warning("⚠️ Some pieces are too large to fit in any available slab:")
+        for pw, pl in too_large_pieces:
+            st.text(f"- {pw}x{pl} cm")
+
+# ───────────────────────────────────────────────
 # 3. Optimization and Results
 # ───────────────────────────────────────────────
 if mode == "Quartz (Standard Slabs)":
@@ -98,21 +113,21 @@ if st.button("🚀 Run Optimization"):
             for slab_combo in combinations_with_replacement(slab_sizes, num_slabs):
                 packer = newPacker(rotation=False)
                 for i, (w_raw, h_raw) in enumerate(pieces):
-                width, height = max(w_raw, h_raw), min(w_raw, h_raw)
-                packer.add_rect(width, height, rid=i)
+                    width, height = max(w_raw, h_raw), min(w_raw, h_raw)
+                    packer.add_rect(width, height, rid=i)
                 for w_raw, h_raw in slab_combo:
-                width, height = max(w_raw, h_raw), min(w_raw, h_raw)
-                packer.add_bin(width, height)
+                    width, height = max(w_raw, h_raw), min(w_raw, h_raw)
+                    packer.add_bin(width, height)
                 packer.pack()
 
                 if len(packer.rect_list()) < len(pieces):
                     continue
 
-                total_piece_area = sum(w * h for w, h in pieces)
-                total_slab_area = sum(w * h for w, h in slab_combo)
+                total_piece_area = sum(max(w, h) * min(w, h) for w, h in pieces)
+                total_slab_area = sum(max(w, h) * min(w, h) for w, h in slab_combo)
                 waste = total_slab_area - total_piece_area
 
-                num_large_slabs = sum(1 for w, _ in slab_combo if w >= 100)
+                num_large_slabs = sum(1 for w, h in slab_combo if max(w, h) >= 100)
                 is_better = False
                 if best_result is None:
                     is_better = True
@@ -200,7 +215,9 @@ if st.button("🚀 Run Optimization"):
             for (x, y, w, h, rid) in rects:
                 color = [random.random() for _ in range(3)]
                 ax.add_patch(patches.Rectangle((x, y), w, h, facecolor=color, edgecolor='black', lw=1, alpha=0.6))
-                label = f"{pieces[rid][1]}x{pieces[rid][0]}"
+                piece_w, piece_h = pieces[rid]
+                height, width = min(piece_w, piece_h), max(piece_w, piece_h)
+                label = f"{height}x{width}"
                 ax.text(x + w/2, y + h/2, label, ha='center', va='center', fontsize=8)
 
             ax.set_xlim(0, sw)
@@ -210,6 +227,7 @@ if st.button("🚀 Run Optimization"):
             st.pyplot(fig)
     else:
         st.error("❌ No valid slab combination found.")
+
 
 
 
