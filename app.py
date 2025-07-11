@@ -58,12 +58,13 @@ if mode == "Quartz (Standard Slabs)":
         w, l = map(int, slab.split("x"))
         slab_sizes.append((w, l))
 
-    for line in user_slabs.strip().splitlines():
-        try:
-            w, l = map(int, line.strip().split(','))
-            slab_sizes.append((w, l))
-        except:
-            st.error(f"❌ Invalid slab format in: {line}")
+    # The following block is no longer needed since selection is handled via multiselect
+    # for line in user_slabs.strip().splitlines():
+    #     try:
+    #         w, l = map(int, line.strip().split(','))
+    #         slab_sizes.append((w, l))
+    #     except:
+    #         st.error(f"❌ Invalid slab format in: {line}")
 else:
     st.subheader("2️⃣ Granite Slab Inventory (custom sizes with quantity)")
     default_inventory = "124,312,1\n120,310,2\n116,298,1"
@@ -192,7 +193,8 @@ if st.button("🚀 Run Optimization"):
             for (x, y, w, h, rid) in rects:
                 color = [random.random() for _ in range(3)]
                 ax.add_patch(patches.Rectangle((x, y), w, h, facecolor=color, edgecolor='black', lw=1, alpha=0.6))
-                ax.text(x + w/2, y + h/2, str(rid), ha='center', va='center', fontsize=8)
+                label = f"{pieces[rid][0]}x{pieces[rid][1]}"
+                ax.text(x + w/2, y + h/2, label, ha='center', va='center', fontsize=8)
 
             ax.set_xlim(0, sw)
             ax.set_ylim(0, sh)
@@ -201,4 +203,5 @@ if st.button("🚀 Run Optimization"):
             st.pyplot(fig)
     else:
         st.error("❌ No valid slab combination found.")
+
 
