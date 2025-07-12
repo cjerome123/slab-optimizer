@@ -85,11 +85,13 @@ def fit_parts_to_slabs(parts, slabs):
 
 def plot_layout(slabs):
     for i, (sw, sh, layout, slab_id) in enumerate(slabs):
-        fig, ax = plt.subplots(figsize=(12, 6))
+        fig_width = max(12, sw / 10)
+        fig_height = max(6, sh / 20)
+        fig, ax = plt.subplots(figsize=(fig_width, fig_height))
         ax.set_title(f"Slab {i+1} - {sw:.0f}cm x {sh:.0f}cm")
         ax.set_xlim(0, sw)
         ax.set_ylim(0, sh)
-        ax.set_aspect('equal')
+        ax.set_aspect('auto')
         ax.invert_yaxis()
 
         for x, y, w, h in layout:
@@ -119,6 +121,7 @@ if st.sidebar.button("🔄 Optimize"):
             st.write(f"{w/100:.2f} x {h/100:.2f} m")
     else:
         st.success("All parts were fitted into slabs!")
+
 
 
 
