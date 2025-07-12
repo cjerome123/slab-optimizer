@@ -33,21 +33,9 @@ def parse_input(text: str) -> List[Tuple[float, float]]:
             continue
     return pieces
 
-input_text = st.text_area("Dimensions:", value="""0.63 3.01
-0.13 0.63
-0.13 3.01
-0.13 0.63
-0.33 2.43
+input_text = st.text_area("Dimensions:", height=200)
 
-0.81 2.76
-0.13 2.76
-0.13 2.76
-0.13 0.81
-0.81 1.03
-0.13 1.03
-0.13 1.03""", height=200)
-
-# --- Best Fit Bin-Packing ---
+# --- Packing Logic ---
 def best_fit_pack(pieces: List[Tuple[float, float]], slab_w: float, slab_h: float):
     bins = []
     sorted_pieces = sorted(pieces, key=lambda x: x[0] * x[1], reverse=True)
@@ -91,7 +79,7 @@ def best_fit_pack(pieces: List[Tuple[float, float]], slab_w: float, slab_h: floa
 
     return [slab["rects"] for slab in bins]
 
-# --- Optimizer ---
+# --- Optimization Logic ---
 def find_best_mixed_slabs(pieces: List[Tuple[float, float]]):
     def evaluate_assignment(combo):
         assigned: Dict[int, List[Tuple[float, float]]] = {}
@@ -117,19 +105,19 @@ def find_best_mixed_slabs(pieces: List[Tuple[float, float]]):
     min_slabs, min_waste = float('inf'), float('inf')
     valid_heights = [h for h in QUARTZ_SLAB_SIZES if any(p[0] <= h for p in pieces)]
 
-    # Try uniform slab height first
+    # Try uniform slabs
     for h in valid_heights:
         if all(p[0] <= h for p in pieces):
             combo = [h] * len(pieces)
             slab_count, waste, layout, records = evaluate_assignment(combo)
-            if slab_count < min_slabs or (
-                slab_count == min_slabs and (
-                    waste < min_waste or (
-                        waste == min_waste and (
-                            sorted(records) < sorted(best_result["slab_records"]) if best_result else True
-                        )
-                    )
-                )
+            if (
+                slab_count < min_slabs or
+                (slab_count == min_slabs and (
+                    waste < min_waste or
+                    (waste == min_waste and (
+                        best_result is None or sorted(records) < sorted(best_result["slab_records"])
+                    ))
+                ))
             ):
                 best_result = {
                     "layout": layout,
@@ -139,21 +127,20 @@ def find_best_mixed_slabs(pieces: List[Tuple[float, float]]):
                 }
                 min_slabs, min_waste = slab_count, waste
 
-    # Try mixed slab heights
+    # Try mixed slabs
     all_assignments = islice(product(valid_heights, repeat=len(pieces)), 100000)
     for combo in all_assignments:
         slab_count, waste, layout, records = evaluate_assignment(combo)
-        if slab_count < min_slabs or (
-            slab_count == min_slabs and (
-                waste < min_waste or (
-                    waste == min_waste and (
-                        sorted(records) < sorted(best_result["slab_records"]) or (
-                            sorted(records) == sorted(best_result["slab_records"]) and
-                            sum(h for _, h in records) / len(records) < sum(h for _, h in best_result["slab_records"]) / len(best_result["slab_records"])
-                        )
-                    )
-                )
-            )
+        if (
+            slab_count < min_slabs or
+            (slab_count == min_slabs and (
+                waste < min_waste or
+                (waste == min_waste and (
+                    sorted(records) < sorted(best_result["slab_records"]) or
+                    (sorted(records) == sorted(best_result["slab_records"]) and
+                     sum(h for _, h in records) / len(records) < sum(h for _, h in best_result["slab_records"]) / len(best_result["slab_records"]))
+                ))
+            ))
         ):
             best_result = {
                 "layout": layout,
@@ -174,7 +161,7 @@ if st.button("Run Slabbing"):
     st.write(f"Estimated Waste Area: {result['waste'] / 10000:.2f} m²")
 
     # --- Visualization ---
-    cols = st.columns(min(len(result['layout']), 3))
+    cols = st.columns(min(3, len(result['layout'])))
     for idx, (slab, w, h) in enumerate(result['layout']):
         with cols[idx % len(cols)]:
             fig, ax = plt.subplots(figsize=(6, h / 60))
@@ -188,6 +175,7 @@ if st.button("Run Slabbing"):
             ax.set_yticks([])
             ax.set_title(f"{int(h)} x {int(w)} cm")
             st.pyplot(fig)
+
 
 
 
