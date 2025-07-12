@@ -172,22 +172,3 @@ if st.button("Run Slabbing"):
 
     for slab, slab_w, slab_h in result['layout']:
         visualize_slab(slab, slab_w, slab_h)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
