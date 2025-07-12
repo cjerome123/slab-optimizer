@@ -102,85 +102,13 @@ def best_fit_pack(pieces: List[Tuple[float, float]], slab_width: float, slab_hei
 def find_best_mixed_slabs(pieces: List[Tuple[float, float]]):
     from itertools import product, combinations, islice
 
+    best_result = None
+    min_slabs = float('inf')
+    min_waste = float('inf')
+
     valid_slab_heights = [h for h in QUARTZ_SLAB_SIZES if all(p[0] <= h for p in pieces)]
     all_assignments = islice(product(valid_slab_heights, repeat=len(pieces)), 50000)
 
-    for i, combo in enumerate(all_assignments):
-        if i > 10000:
-            break
-
-        assignment: Dict[int, List[Tuple[float, float]]] = {}
-        for idx, slab_h in enumerate(combo):
-            assignment.setdefault(slab_h, []).append(pieces[idx])
-
-        layout_all = []
-        waste_all = 0
-        count_all = 0
-        slab_records = []
-
-        for slab_h, group in assignment.items():
-            if not group:
-                continue
-            layout = best_fit_pack(group, SLAB_FIXED_LENGTH, slab_h)
-            used_area = sum(w * h for slab in layout for _, _, w, h in slab)
-            total_area = len(layout) * SLAB_FIXED_LENGTH * slab_h
-            waste = total_area - used_area
-
-            layout_all.extend([(slab, SLAB_FIXED_LENGTH, slab_h) for slab in layout])
-            slab_records.extend([(SLAB_FIXED_LENGTH, slab_h)] * len(layout))
-            waste_all += waste
-            count_all += len(layout)
-
-        if count_all < min_slabs or (count_all == min_slabs and (waste_all < min_waste or (waste_all == min_waste and sorted(slab_records) < sorted(best_result["slab_records"])))):
-            min_slabs = count_all
-            min_waste = waste_all
-            best_result = {
-                "layout": layout_all,
-                "waste": waste_all,
-                "slab_count": count_all,
-                "slab_records": slab_records
-            }
-
-    return best_result if best_result else {"layout": [], "waste": 0, "slab_count": 0, "slab_records": []}
-
-# --- Run ---
-if st.button("Run Slabbing"):
-    pieces = parse_input(input_text)
-    if not pieces:
-        st.error("Invalid input.")
-        st.stop()
-
-    result = find_best_mixed_slabs(pieces)
-    if not result or not result["layout"]:
-        st.error("No slab size could accommodate your pieces.")
-        st.stop()
-
-    st.subheader("Results")
-    st.write(f"Total Slabs: {result['slab_count']}")
-    st.write(f"Waste: {result['waste']/10000:.2f} m²")
-
-    # Count unique slab sizes used
-    from collections import Counter
-    slab_summary = Counter((min(w, h), max(w, h)) for w, h in result["slab_records"])
-    st.write("Used Slab Sizes:")
-    for (sh, sw), count in slab_summary.items():
-        st.write(f"- {sh} x {sw} cm: {count} slab(s)")
-
-    # --- Visualization ---
-    def visualize_slab(slab_data, slab_w, slab_h):
-        fig, ax = plt.subplots(figsize=(12, 3))
-        ax.set_xlim(0, slab_w)
-        ax.set_ylim(0, slab_h)
-        ax.set_aspect('auto')
-        ax.axis('off')
-        for x, y, w, h in slab_data:
-            rect = patches.Rectangle((x, y), w, h, edgecolor='black', facecolor='skyblue', lw=1)
-            ax.add_patch(rect)
-            ax.text(x + w / 2, y + h / 2, f"{int(w)}×{int(h)}", ha='center', va='center', fontsize=8)
-        st.pyplot(fig)
-
-    for slab, slab_w, slab_h in result['layout']:
-        visualize_slab(slab, slab_w, slab_h)
 
 
 
