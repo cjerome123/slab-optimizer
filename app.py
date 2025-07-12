@@ -85,39 +85,51 @@ def best_fit_pack(pieces: List[Tuple[float, float]], slab_width: float, slab_hei
 
 # --- Mixed Slab Optimization ---
 def find_best_mixed_slabs(pieces: List[Tuple[float, float]]):
-    grouped: Dict[int, List[Tuple[float, float]]] = {h: [] for h in QUARTZ_SLAB_SIZES}
-    for h, w in pieces:
-        for slab_h in sorted(QUARTZ_SLAB_SIZES):
-            if h <= slab_h:
-                grouped[slab_h].append((h, w))
-                break
+    from itertools import product
 
-    result_layouts = []
-    total_waste = 0
-    total_slabs = 0
-    slab_records = []
+    best_result = None
+    min_slabs = float('inf')
+    min_waste = float('inf')
+    best_assignment = None
 
-    for slab_h, group in grouped.items():
-        if not group:
-            continue
-        layout = best_fit_pack(group, slab_width=SLAB_FIXED_LENGTH, slab_height=slab_h)
-        used_area = sum(w * h for slab in layout for _, _, w, h in slab)
-        total_area = len(layout) * SLAB_FIXED_LENGTH * slab_h
-        waste = total_area - used_area
+    valid_slab_heights = [h for h in QUARTZ_SLAB_SIZES if all(p[0] <= h for p in pieces)]
+    slab_combos = product(valid_slab_heights, repeat=len(pieces))
 
-        total_slabs += len(layout)
-        total_waste += waste
+    max_combos = 2000  # limit for performance
+    for i, combo in enumerate(slab_combos):
+        if i > max_combos:
+            break
+        assignment: Dict[int, List[Tuple[float, float]]] = {}
+        for idx, slab_h in enumerate(combo):
+            assignment.setdefault(slab_h, []).append(pieces[idx])
 
-        for slab in layout:
-            result_layouts.append((slab, SLAB_FIXED_LENGTH, slab_h))
-            slab_records.append((SLAB_FIXED_LENGTH, slab_h))
+        layout_all = []
+        waste_all = 0
+        count_all = 0
+        slab_records = []
 
-    return {
-        "layout": result_layouts,
-        "waste": total_waste,
-        "slab_count": total_slabs,
-        "slab_records": slab_records
-    }
+        for slab_h, group in assignment.items():
+            layout = best_fit_pack(group, SLAB_FIXED_LENGTH, slab_h)
+            used_area = sum(w * h for slab in layout for _, _, w, h in slab)
+            total_area = len(layout) * SLAB_FIXED_LENGTH * slab_h
+            waste = total_area - used_area
+
+            layout_all.extend([(slab, SLAB_FIXED_LENGTH, slab_h) for slab in layout])
+            slab_records.extend([(SLAB_FIXED_LENGTH, slab_h)] * len(layout))
+            waste_all += waste
+            count_all += len(layout)
+
+        if count_all < min_slabs or (count_all == min_slabs and waste_all < min_waste):
+            min_slabs = count_all
+            min_waste = waste_all
+            best_result = {
+                "layout": layout_all,
+                "waste": waste_all,
+                "slab_count": count_all,
+                "slab_records": slab_records
+            }
+
+    return best_result if best_result else {"layout": [], "waste": 0, "slab_count": 0, "slab_records": []}
 
 # --- Run ---
 if st.button("Run Slabbing"):
@@ -157,6 +169,7 @@ if st.button("Run Slabbing"):
 
     for slab, slab_w, slab_h in result['layout']:
         visualize_slab(slab, slab_w, slab_h)
+
 
 
 
