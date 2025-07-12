@@ -52,14 +52,14 @@ st.caption("Enter your required pieces and slab sizes in centimeters. The app wi
 # ──────────────────────────────────────────────────
 with st.expander("📌 Required Pieces", expanded=True):
     default_input = "65,253\n64,227\n64,73\n73,227\n73,314\n73,73\n8,166\n8,253\n16,83\n15,82"
-user_input = st.text_area("✏️ One piece per line. Format: width,length (in cm)", value=default_input, height=150, label_visibility="visible")
+user_input = st.text_area("✏️ One piece per line. Format: width,length (in meters)", value=default_input, height=150, label_visibility="visible")
 
 pieces = []
 for line in user_input.strip().splitlines():
     try:
         parts = line.replace('\t', ' ').replace(',', ' ').split()
         w, l = map(float, parts[:2])
-        pieces.append((w, l))
+        pieces.append((w * 100, l * 100))  # Convert from meters to centimeters
     except:
         st.error(f"❌ Invalid format in: {line}")
 
@@ -71,8 +71,34 @@ if pieces:
 # 2. Slab Sizes Input
 # ──────────────────────────────────────────────────
 with st.expander("🪵 Available Slab Sizes", expanded=True):
-    default_slabs = "60,320\n70,320\n80,320\n90,320\n100,320\n160,320"
-slab_input = st.text_area("📐 Slab sizes (one per line, in cm)", value=default_slabs, height=120)
+    quartz_options = [(60, 320), (70, 320), (80, 320), (90, 320), (100, 320), (160, 320)]
+    if mode == "Quartz":
+        st.markdown("**✅ Select available Quartz slab sizes (in cm):**")
+        slab_toggles = {
+            size: st.checkbox(f"{size[0]}×{size[1]}", value=True)
+            for size in quartz_options
+        }
+        slab_sizes = [s for s, use in slab_toggles.items() if use]
+    else:
+        default_slabs = "60,320
+70,320
+80,320
+90,320
+100,320
+160,320"
+        slab_input = st.text_area("📐 Slab sizes (one per line, in cm)", value=default_slabs, height=120)
+        slab_sizes = []
+        for line in slab_input.strip().splitlines():
+            try:
+                parts = line.replace('	', ' ').replace(',', ' ').split()
+                w, l = map(float, parts[:2])
+                if any(pw > w or pl > l for pw, pl in pieces):
+                    continue  # Skip slabs that cannot fit at least one piece
+                slab_sizes.append((w, l))
+            except:
+                st.error(f"❌ Invalid format in: {line}")
+
+"📐 Slab sizes (one per line, in cm)", value=default_slabs, height=120)
 
 slab_sizes = []
 for line in slab_input.strip().splitlines():
@@ -151,6 +177,7 @@ with st.spinner("⏳ Optimizing layout..."):
             st.pyplot(fig)
     else:
         st.error("❌ No valid slab combination found.")
+
 
 
 
