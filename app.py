@@ -1,18 +1,16 @@
-# Real-time slab optimizer with multiprocessing and accurate mixed slab usage + caching and speed boost
+# Real-time slab optimizer with sequential execution and caching for speed
 
 import streamlit as st
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 from collections import defaultdict
-from multiprocessing import Pool, cpu_count
 import itertools
-from functools import lru_cache
 
 QUARTZ_SLAB_SIZES = [60, 70, 80, 90, 100, 160]
 SLAB_FIXED_LENGTH = 320
 
 st.set_page_config(page_title="Quartz Slab Optimizer", layout="wide")
-st.title("🪨 Quartz Slab Optimizer (Efficient + Fast)")
+st.title("Quartz Slab Optimizer (Efficient and Fast)")
 st.markdown("Enter required dimensions in **meters**, one per line (e.g. `0.65 2.53`) and click Run")
 
 # --- Input ---
@@ -74,8 +72,7 @@ def compute_optimal_slabbing(pieces_raw):
             slabs.append(current)
         return slabs
 
-    def evaluate_uniform_slab(args):
-        slab_h, orientation, raw_pieces = args
+    def evaluate_uniform_slab(slab_h, orientation, raw_pieces):
         slab_w, slab_hh = (SLAB_FIXED_LENGTH, slab_h) if orientation == "horizontal" else (slab_h, SLAB_FIXED_LENGTH)
         pieces = [(max(w, h), min(w, h)) if orientation == "horizontal" else (min(w, h), max(w, h)) for (w, h) in raw_pieces]
 
@@ -92,11 +89,7 @@ def compute_optimal_slabbing(pieces_raw):
             "slab_count": len(layout)
         }
 
-    args_list = list(itertools.product(QUARTZ_SLAB_SIZES, ["horizontal"], [pieces_raw]))
-    with Pool(cpu_count()) as pool:
-        uniform_results = pool.map(evaluate_uniform_slab, args_list)
-
-    uniform_results = [r for r in uniform_results if r]
+    uniform_results = [evaluate_uniform_slab(slab_h, "horizontal", pieces_raw) for slab_h in QUARTZ_SLAB_SIZES]
     best_uniform = min(uniform_results, key=lambda x: x['waste'], default=None)
 
     if best_uniform and best_uniform['waste'] < 10000:
@@ -138,7 +131,7 @@ def compute_optimal_slabbing(pieces_raw):
     best_mixed = try_mixed_layout([(max(w, h), min(w, h)) for (w, h) in pieces_raw]) or {"waste": float("inf")}
     return best_mixed
 
-if st.button("▶️ Run Slabbing"):
+if st.button("Run Slabbing"):
     pieces_raw = []
     for line in input_text.strip().split("\n"):
         try:
@@ -148,23 +141,23 @@ if st.button("▶️ Run Slabbing"):
             continue
 
     if not pieces_raw:
-        st.error("❌ Invalid input.")
+        st.error("Invalid input.")
         st.stop()
 
     result = compute_optimal_slabbing(pieces_raw)
     strategy = result["strategy"]
 
-    st.subheader(f"📦 Strategy: **{strategy}**")
-    st.write(f"🔢 Total Slabs: **{result['slab_count']}**")
-    st.write(f"🗑️ Waste: **{result['waste']/10000:.2f} m²**")
+    st.subheader(f"Strategy: {strategy}")
+    st.write(f"Total Slabs: {result['slab_count']}")
+    st.write(f"Waste: {result['waste']/10000:.2f} m²")
 
     if strategy == "Uniform":
         sw, sh = result["slab_size"]
         smaller, larger = sorted([sw, sh])
-        st.write(f"📏 Slab Size: **{int(smaller)} x {int(larger)} cm**")
+        st.write(f"Slab Size: {int(smaller)} x {int(larger)} cm")
     else:
         slab_list = ', '.join([f"{min(k)}×{max(k)} ({len(v)})" for k, v in result["layout"].items()])
-        st.write(f"📏 Slabs Used: {slab_list}")
+        st.write(f"Slabs Used: {slab_list}")
 
     def visualize_slab(slab_data, slab_w, slab_h):
         fig, ax = plt.subplots(figsize=(12, 3))
@@ -185,6 +178,7 @@ if st.button("▶️ Run Slabbing"):
         for (sw, sh), slabs in result["layout"].items():
             for slab in slabs:
                 visualize_slab(slab, sw, sh)
+
 
 
 
