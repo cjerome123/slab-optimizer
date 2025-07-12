@@ -51,7 +51,7 @@ st.caption("Enter your required pieces and slab sizes in centimeters. The app wi
 # 1. Required Pieces Input
 # ──────────────────────────────────────────────────
 with st.expander("📌 Required Pieces", expanded=True):
-default_input = "65,253\n64,227\n64,73\n73,227\n73,314\n73,73\n8,166\n8,253\n16,83\n15,82"
+    default_input = "65,253\n64,227\n64,73\n73,227\n73,314\n73,73\n8,166\n8,253\n16,83\n15,82"
 user_input = st.text_area("✏️ One piece per line. Format: width,length (in cm)", value=default_input, height=150, label_visibility="visible")
 
 pieces = []
@@ -71,7 +71,7 @@ if pieces:
 # 2. Slab Sizes Input
 # ──────────────────────────────────────────────────
 with st.expander("🪵 Available Slab Sizes", expanded=True):
-default_slabs = "60,320\n70,320\n80,320\n90,320\n100,320\n160,320"
+    default_slabs = "60,320\n70,320\n80,320\n90,320\n100,320\n160,320"
 slab_input = st.text_area("📐 Slab sizes (one per line, in cm)", value=default_slabs, height=120)
 
 slab_sizes = []
@@ -151,6 +151,7 @@ with st.spinner("⏳ Optimizing layout..."):
             st.pyplot(fig)
     else:
         st.error("❌ No valid slab combination found.")
+
 
 
 
