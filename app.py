@@ -41,27 +41,36 @@ def best_fit_pack(pieces: List[Tuple[float, float]], slab_width: float, slab_hei
     for h, w in sorted(pieces, key=lambda x: x[0]*x[1], reverse=True):
         placed = False
         for slab in bins:
-            x_cursor, y_cursor, row_height, rects = slab
+            x = slab["x_cursor"]
+            y = slab["y_cursor"]
+            row_height = slab["row_height"]
+            rects = slab["rects"]
+
             if w > slab_width or h > slab_height:
                 continue
-            if x_cursor + w <= slab_width:
-                rects.append((x_cursor, y_cursor, w, h))
-                slab[0] += w
-                slab[2] = max(row_height, h)
+
+            if x + w <= slab_width:
+                rects.append((x, y, w, h))
+                slab["x_cursor"] += w
+                slab["row_height"] = max(row_height, h)
                 placed = True
                 break
-            elif y_cursor + row_height + h <= slab_height:
-                slab[0] = 0
-                slab[1] += row_height
-                slab[2] = h
-                slab[3].append((0, slab[1], w, h))
-                slab[0] = w
+            elif y + row_height + h <= slab_height:
+                slab["x_cursor"] = w
+                slab["y_cursor"] += row_height
+                slab["row_height"] = h
+                rects.append((0, slab["y_cursor"], w, h))
                 placed = True
                 break
+
         if not placed:
-            new_slab = [w, 0, h, [(0, 0, w, h)]]
-            bins.append(new_slab)
-    return [slab[3] for slab in bins]
+            bins.append({
+                "x_cursor": w,
+                "y_cursor": 0,
+                "row_height": h,
+                "rects": [(0, 0, w, h)]
+            })
+    return [slab["rects"] for slab in bins]
 
 # --- Optimization over All Slab Sizes ---
 def find_best_slab(pieces: List[Tuple[float, float]]):
@@ -117,6 +126,7 @@ if st.button("Run Slabbing"):
 
     for slab in result['layout']:
         visualize_slab(slab, slab_w, slab_h)
+
 
 
 
