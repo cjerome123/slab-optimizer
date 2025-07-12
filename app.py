@@ -86,7 +86,7 @@ with st.expander("🪵 Available Slab Sizes", expanded=True):
 90,320
 100,320
 160,320"""
-        slab_input = st.text_area("📐 Slab sizes (one per line, in cm)", value=default_slabs, height=120)
+        slab_input = st.text_area(
         slab_sizes = []
         for line in slab_input.strip().splitlines():
             try:
@@ -177,6 +177,7 @@ with st.spinner("⏳ Optimizing layout..."):
             st.pyplot(fig)
     else:
         st.error("❌ No valid slab combination found.")
+
 
 
 
