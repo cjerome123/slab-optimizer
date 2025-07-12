@@ -1,9 +1,10 @@
-# Quartz Slab Optimizer - Rebuilt for Structured Shelf Packing
+# Quartz Slab Optimizer - Advanced Bin-Packing Optimization
 
 import streamlit as st
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 from typing import List, Tuple
+import itertools
 
 QUARTZ_SLAB_SIZES = [60, 70, 80, 90, 100, 160]  # in cm
 SLAB_FIXED_LENGTH = 320  # in cm
@@ -18,7 +19,7 @@ def parse_input(text: str) -> List[Tuple[float, float]]:
     for line in text.strip().split("\n"):
         try:
             a, b = map(float, line.strip().split())
-            pieces.append((min(a, b) * 100, max(a, b) * 100))  # height, width
+            pieces.append((min(a, b) * 100, max(a, b) * 100))  # height, width in cm
         except:
             continue
     return pieces
@@ -34,53 +35,39 @@ input_text = st.text_area("Dimensions:", value="""0.65 2.53
 0.16 0.83
 0.15 0.82""", height=200)
 
-# --- Shelf-based Packing ---
-def shelf_pack(pieces: List[Tuple[float, float]], slab_width: float, slab_height: float):
-    remaining = sorted(pieces, key=lambda x: x[1], reverse=True)  # sort by width desc
-    slabs = []
+# --- Bin Packing with Best Fit ---
+def best_fit_pack(pieces: List[Tuple[float, float]], slab_width: float, slab_height: float):
+    bins = []
+    for h, w in sorted(pieces, key=lambda x: x[0]*x[1], reverse=True):
+        placed = False
+        for slab in bins:
+            x_cursor, y_cursor, row_height, rects = slab
+            if w > slab_width or h > slab_height:
+                continue
+            if x_cursor + w <= slab_width:
+                rects.append((x_cursor, y_cursor, w, h))
+                slab[0] += w
+                slab[2] = max(row_height, h)
+                placed = True
+                break
+            elif y_cursor + row_height + h <= slab_height:
+                slab[0] = 0
+                slab[1] += row_height
+                slab[2] = h
+                slab[3].append((0, slab[1], w, h))
+                slab[0] = w
+                placed = True
+                break
+        if not placed:
+            new_slab = [w, 0, h, [(0, 0, w, h)]]
+            bins.append(new_slab)
+    return [slab[3] for slab in bins]
 
-    while remaining:
-        current_slab = []
-        y = 0
-        shelf_height = 0
-        shelf = []
-        while remaining:
-            fit = False
-            for i, (h, w) in enumerate(remaining):
-                if w > slab_width or h > slab_height:
-                    continue
-                if sum(p[1] for p in shelf) + w <= slab_width:
-                    shelf.append((h, w))
-                    shelf_height = max(shelf_height, h)
-                    remaining.pop(i)
-                    fit = True
-                    break
-            if not fit:
-                if not shelf:
-                    break
-                x = 0
-                for sh, sw in shelf:
-                    current_slab.append((x, y, sw, sh))
-                    x += sw
-                y += shelf_height
-                shelf = []
-                shelf_height = 0
-                if y >= slab_height:
-                    break
-        if shelf:
-            x = 0
-            for sh, sw in shelf:
-                current_slab.append((x, y, sw, sh))
-                x += sw
-        slabs.append(current_slab)
-
-    return slabs
-
-# --- Optimization ---
+# --- Optimization over All Slab Sizes ---
 def find_best_slab(pieces: List[Tuple[float, float]]):
     best_result = None
     for slab_h in QUARTZ_SLAB_SIZES:
-        layout = shelf_pack(pieces.copy(), slab_width=SLAB_FIXED_LENGTH, slab_height=slab_h)
+        layout = best_fit_pack(pieces.copy(), slab_width=SLAB_FIXED_LENGTH, slab_height=slab_h)
         used_area = sum(w * h for slab in layout for _, _, w, h in slab)
         total_area = len(layout) * SLAB_FIXED_LENGTH * slab_h
         waste = total_area - used_area
@@ -124,6 +111,7 @@ if st.button("Run Slabbing"):
 
     for slab in result['layout']:
         visualize_slab(slab, slab_w, slab_h)
+
 
 
 
