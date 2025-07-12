@@ -107,7 +107,8 @@ def find_best_mixed_slabs(pieces: List[Tuple[float, float]]):
     min_waste = float('inf')
 
     valid_slab_heights = [h for h in QUARTZ_SLAB_SIZES if all(p[0] <= h for p in pieces)]
-    all_assignments = list(product(valid_slab_heights, repeat=len(pieces)))
+    from itertools import islice
+all_assignments = islice(product(valid_slab_heights, repeat=len(pieces)), 50000)
 
     for i, combo in enumerate(all_assignments):
         if i > 10000:
@@ -135,7 +136,7 @@ def find_best_mixed_slabs(pieces: List[Tuple[float, float]]):
             waste_all += waste
             count_all += len(layout)
 
-        if count_all < min_slabs or (count_all == min_slabs and waste_all < min_waste):
+        if count_all < min_slabs or (count_all == min_slabs and (waste_all < min_waste or (waste_all == min_waste and sorted(slab_records) < sorted(best_result["slab_records"])))):
             min_slabs = count_all
             min_waste = waste_all
             best_result = {
@@ -185,4 +186,5 @@ if st.button("Run Slabbing"):
 
     for slab, slab_w, slab_h in result['layout']:
         visualize_slab(slab, slab_w, slab_h)
+
 
