@@ -93,13 +93,7 @@ def best_fit_pack(pieces: List[Tuple[float, float]], slab_w: float, slab_h: floa
 
 # --- Optimizer ---
 def find_best_mixed_slabs(pieces: List[Tuple[float, float]]):
-    best_result = None
-    min_slabs, min_waste = float('inf'), float('inf')
-
-    valid_heights = [h for h in QUARTZ_SLAB_SIZES if any(p[0] <= h for p in pieces)]
-    all_assignments = islice(product(valid_heights, repeat=len(pieces)), 100000)
-
-    for combo in all_assignments:
+    def evaluate_assignment(combo):
         assigned: Dict[int, List[Tuple[float, float]]] = {}
         for i, slab_h in enumerate(combo):
             assigned.setdefault(slab_h, []).append(pieces[i])
@@ -117,6 +111,42 @@ def find_best_mixed_slabs(pieces: List[Tuple[float, float]]):
             waste += total - used
             slab_count += len(packed)
 
+        return slab_count, waste, layout, records
+
+    best_result = None
+    min_slabs, min_waste = float('inf'), float('inf')
+
+    valid_heights = [h for h in QUARTZ_SLAB_SIZES if any(p[0] <= h for p in pieces)]
+
+    # First try uniform slab heights
+    for h in valid_heights:
+        if all(p[0] <= h for p in pieces):
+            combo = [h] * len(pieces)
+            slab_count, waste, layout, records = evaluate_assignment(combo)
+            if slab_count < min_slabs or (
+                slab_count == min_slabs and (
+                    waste < min_waste or (
+                        waste == min_waste and (
+                            sorted(records) < sorted(best_result["slab_records"]) or (
+                                sorted(records) == sorted(best_result["slab_records"]) and
+                                sum(h for _, h in records) / len(records) < sum(h for _, h in best_result["slab_records"]) / len(best_result["slab_records"])
+                            )
+                        )
+                    )
+                )
+            ):
+                best_result = {
+                    "layout": layout,
+                    "waste": waste,
+                    "slab_count": slab_count,
+                    "slab_records": records
+                }
+                min_slabs, min_waste = slab_count, waste
+
+    # Then try mixed slab heights
+    all_assignments = islice(product(valid_heights, repeat=len(pieces)), 100000)
+    for combo in all_assignments:
+        slab_count, waste, layout, records = evaluate_assignment(combo)
         if slab_count < min_slabs or (
             slab_count == min_slabs and (
                 waste < min_waste or (
@@ -162,6 +192,7 @@ if st.button("Run Slabbing"):
             ax.set_yticks([])
             ax.set_title(f"{int(h)} x {int(w)} cm")
             st.pyplot(fig)
+
 
 
 
