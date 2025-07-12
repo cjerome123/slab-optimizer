@@ -11,7 +11,7 @@ def parse_input(text):
     lines = text.strip().split("\n")
     items = []
     for line in lines:
-        parts = line.strip().split(",")
+        parts = line.strip().replace("\t", " ").split()
         if len(parts) < 2:
             continue
         width, height = map(float, parts[:2])
@@ -24,13 +24,12 @@ def parse_slabs(text):
     lines = text.strip().split("\n")
     slabs = []
     for line in lines:
-        parts = line.strip().split(",")
+        parts = line.strip().replace(",", " ").replace("\t", " ").split()
         if len(parts) < 2:
             continue
         width, height = map(float, parts[:2])
-        # Convert meters to centimeters
-        width_cm, height_cm = width * 100, height * 100
-        slabs.append((width_cm, height_cm))
+        # Keep as centimeters
+        slabs.append((width, height))
     return slabs
 
 
@@ -87,7 +86,7 @@ def fit_parts_to_slabs(parts, slabs):
 def plot_layout(slabs):
     for i, (sw, sh, layout, slab_id) in enumerate(slabs):
         fig, ax = plt.subplots(figsize=(12, 6))
-        ax.set_title(f"Slab {i+1} - {sw/100:.2f}m x {sh/100:.2f}m")
+        ax.set_title(f"Slab {i+1} - {sw:.0f}cm x {sh:.0f}cm")
         ax.set_xlim(0, sw)
         ax.set_ylim(0, sh)
         ax.set_aspect('equal')
@@ -95,16 +94,16 @@ def plot_layout(slabs):
 
         for x, y, w, h in layout:
             ax.add_patch(Rectangle((x, y), w, h, edgecolor='black', facecolor='#aad3df'))
-            ax.text(x + w/2, y + h/2, f"{w/100:.2f}x{h/100:.2f}", ha='center', va='center', fontsize=8)
+            ax.text(x + w/2, y + h/2, f"{w/100:.2f}x{h/100:.2f}m", ha='center', va='center', fontsize=8)
 
         st.pyplot(fig)
 
 # --- Sidebar Inputs ---
 st.sidebar.header("🧾 Input Dimensions")
-part_input = st.sidebar.text_area("Parts (width,height in meters)",
-                                  "0.3,0.2\n0.5,0.4\n0.6,0.3")
-slab_input = st.sidebar.text_area("Slabs (width,height in meters)",
-                                  "1.0,2.0\n1.2,2.4")
+part_input = st.sidebar.text_area("Parts (width height in meters, space or tab separated)",
+                                  "0.3 0.2\n0.5 0.4\n0.6 0.3")
+slab_input = st.sidebar.text_area("Slabs (width height in centimeters, space or tab separated)",
+                                  "100 200\n120 240")
 
 if st.sidebar.button("🔄 Optimize"):
     parts = parse_input(part_input)
@@ -120,6 +119,7 @@ if st.sidebar.button("🔄 Optimize"):
             st.write(f"{w/100:.2f} x {h/100:.2f} m")
     else:
         st.success("All parts were fitted into slabs!")
+
 
 
 
