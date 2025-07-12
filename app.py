@@ -75,7 +75,10 @@ def best_fit_pack(pieces: List[Tuple[float, float]], slab_width: float, slab_hei
 # --- Optimization over All Slab Sizes ---
 def find_best_slab(pieces: List[Tuple[float, float]]):
     best_result = None
+    max_piece_height = max(h for h, w in pieces)
     for slab_h in QUARTZ_SLAB_SIZES:
+        if slab_h < max_piece_height:
+            continue
         layout = best_fit_pack(pieces.copy(), slab_width=SLAB_FIXED_LENGTH, slab_height=slab_h)
         if not layout:
             continue  # Skip if nothing could be packed in this slab size
@@ -126,6 +129,7 @@ if st.button("Run Slabbing"):
 
     for slab in result['layout']:
         visualize_slab(slab, slab_w, slab_h)
+
 
 
 
