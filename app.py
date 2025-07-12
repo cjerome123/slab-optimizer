@@ -98,6 +98,31 @@ def best_fit_pack(pieces: List[Tuple[float, float]], slab_width: float, slab_hei
 
     return [slab["rects"] for slab in bins]
 
+# --- Run Button ---
+if st.button("Run Slabbing"):
+    pieces = parse_input(input_text)
+    result = find_best_mixed_slabs(pieces)
+
+    st.subheader(f"Recommended Layout: {result['slab_count']} slab(s)")
+    st.write(f"Estimated Waste Area: {result['waste'] / 10000:.2f} m²")
+
+    # --- Visualize Layout ---
+    cols = st.columns(min(len(result['layout']), 3))
+    for idx, (slab, slab_w, slab_h) in enumerate(result['layout']):
+        with cols[idx % len(cols)]:
+            fig, ax = plt.subplots(figsize=(6, slab_h / 60))
+            ax.set_xlim(0, slab_w)
+            ax.set_ylim(0, slab_h)
+            for x, y, w, h in slab:
+                rect = patches.Rectangle((x, y), w, h, linewidth=1, edgecolor='black', facecolor='skyblue')
+                ax.add_patch(rect)
+                ax.text(x + w / 2, y + h / 2, f"{int(h)}x{int(w)}", ha='center', va='center', fontsize=8)
+            ax.set_xticks([])
+            ax.set_yticks([])
+            ax.set_title(f"{int(slab_h)} x {int(slab_w)} cm")
+            st.pyplot(fig)
+
+
 # --- Mixed Slab Optimization ---
 def find_best_mixed_slabs(pieces: List[Tuple[float, float]]):
     from itertools import product, combinations, islice
@@ -108,6 +133,42 @@ def find_best_mixed_slabs(pieces: List[Tuple[float, float]]):
 
     valid_slab_heights = [h for h in QUARTZ_SLAB_SIZES if all(p[0] <= h for p in pieces)]
     all_assignments = islice(product(valid_slab_heights, repeat=len(pieces)), 50000)
+
+    for i, combo in enumerate(all_assignments):
+        assignment: Dict[int, List[Tuple[float, float]]] = {}
+        for idx, slab_h in enumerate(combo):
+            assignment.setdefault(slab_h, []).append(pieces[idx])
+
+        layout_all = []
+        waste_all = 0
+        count_all = 0
+        slab_records = []
+
+        for slab_h, group in assignment.items():
+            if not group:
+                continue
+            layout = best_fit_pack(group, SLAB_FIXED_LENGTH, slab_h)
+            used_area = sum(w * h for slab in layout for _, _, w, h in slab)
+            total_area = len(layout) * SLAB_FIXED_LENGTH * slab_h
+            waste = total_area - used_area
+
+            layout_all.extend([(slab, SLAB_FIXED_LENGTH, slab_h) for slab in layout])
+            slab_records.extend([(SLAB_FIXED_LENGTH, slab_h)] * len(layout))
+            waste_all += waste
+            count_all += len(layout)
+
+        if count_all < min_slabs or (count_all == min_slabs and (waste_all < min_waste or (waste_all == min_waste and sorted(slab_records) < sorted(best_result["slab_records"])))):
+            min_slabs = count_all
+            min_waste = waste_all
+            best_result = {
+                "layout": layout_all,
+                "waste": waste_all,
+                "slab_count": count_all,
+                "slab_records": slab_records
+            }
+
+    return best_result if best_result else {"layout": [], "waste": 0, "slab_count": 0, "slab_records": []}
+
 
 
 
