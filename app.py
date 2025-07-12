@@ -94,8 +94,8 @@ min_waste = float('inf')
 
 st.markdown("<div style='text-align:center;padding:1rem;'>", unsafe_allow_html=True)
 with st.spinner("⏳ Optimizing layout..."):
-        if st.button("🚀 Run Slab Optimization", type='primary'):
-    st.markdown("</div>", unsafe_allow_html=True)
+    if st.button("🚀 Run Slab Optimization", type='primary'):
+            st.markdown("</div>", unsafe_allow_html=True)
     for num_slabs in range(1, 4):  # Try combinations with 1 to 3 slabs
         for slab_combo in combinations_with_replacement(slab_sizes, num_slabs):
             packer = newPacker(rotation=False)
@@ -151,6 +151,7 @@ with st.spinner("⏳ Optimizing layout..."):
             st.pyplot(fig)
     else:
         st.error("❌ No valid slab combination found.")
+
 
 
 
