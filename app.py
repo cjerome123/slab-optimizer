@@ -1,229 +1,222 @@
-import tkinter as tk
-from tkinter import ttk, messagebox
-from typing import List, Tuple
+import streamlit as st
 import matplotlib.pyplot as plt
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+import pandas as pd
+from collections import defaultdict
 
-class CutOptimizerApp:
-    def __init__(self, root):
-        self.root = root
-        self.root.title("Advanced Cutlist Optimizer")
-        self.root.geometry("900x700")
-        
-        # Configure style
-        self.style = ttk.Style()
-        self.style.configure('TFrame', background='#f0f0f0')
-        self.style.configure('TButton', padding=6)
-        self.style.configure('TLabel', background='#f0f0f0')
-        
-        self.create_widgets()
-        self.cuts = []
-        self.stock_lengths = [2400]  # Default stock length in mm
-        self.results = []
+# Set page config
+st.set_page_config(
+    page_title="Cutlist Optimizer PRO",
+    page_icon="✂️",
+    layout="wide"
+)
+
+# Custom CSS for better styling
+st.markdown("""
+<style>
+.stButton>button {
+    border-radius: 5px;
+    border: 1px solid #4CAF50;
+    color: white;
+    background-color: #4CAF50;
+}
+.stTextInput>div>div>input, .stNumberInput>div>div>input {
+    padding: 10px !important;
+}
+.st-ax {
+    background-color: #f0f0f0;
+}
+.stAlert {
+    border-radius: 5px;
+}
+</style>
+""", unsafe_allow_html=True)
+
+def main():
+    st.title("✂️ Cutlist Optimizer PRO")
+    st.write("Optimize material usage with professional cut planning")
     
-    def create_widgets(self):
-        # Main container
-        main_frame = ttk.Frame(self.root, padding="10")
-        main_frame.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
-        
-        # Input section
-        input_frame = ttk.LabelFrame(main_frame, text="Input Parameters", padding="10")
-        input_frame.grid(row=0, column=0, padx=5, pady=5, sticky=(tk.W, tk.E))
-        
-        # Stock length input
-        ttk.Label(input_frame, text="Stock Length (mm):").grid(row=0, column=0, sticky=tk.W)
-        self.stock_entry = ttk.Entry(input_frame, width=10)
-        self.stock_entry.insert(0, "2400")
-        self.stock_entry.grid(row=0, column=1, sticky=tk.W, padx=5)
-        
-        # Cut length input
-        ttk.Label(input_frame, text="Cut Length (mm):").grid(row=1, column=0, sticky=tk.W)
-        self.cut_length_entry = ttk.Entry(input_frame, width=10)
-        self.cut_length_entry.grid(row=1, column=1, sticky=tk.W, padx=5)
-        
-        # Quantity input
-        ttk.Label(input_frame, text="Quantity:").grid(row=1, column=2, sticky=tk.W, padx=10)
-        self.quantity_entry = ttk.Entry(input_frame, width=8)
-        self.quantity_entry.grid(row=1, column=3, sticky=tk.W)
-        
-        # Add cut button
-        add_button = ttk.Button(input_frame, text="Add Cut", command=self.add_cut)
-        add_button.grid(row=1, column=4, padx=10)
-        
-        # Clear button
-        clear_button = ttk.Button(input_frame, text="Clear All", command=self.clear_cuts)
-        clear_button.grid(row=0, column=4, padx=10)
-        
-        # Cuts list display
-        self.cuts_tree = ttk.Treeview(main_frame, columns=("length", "quantity"), show="headings", height=10)
-        self.cuts_tree.heading("length", text="Length (mm)")
-        self.cuts_tree.heading("quantity", text="Quantity")
-        self.cuts_tree.column("length", width=150)
-        self.cuts_tree.column("quantity", width=100)
-        self.cuts_tree.grid(row=1, column=0, padx=5, pady=5, sticky=(tk.W, tk.E))
-        
-        # Remove selected button
-        remove_button = ttk.Button(main_frame, text="Remove Selected", command=self.remove_selected)
-        remove_button.grid(row=2, column=0, sticky=tk.W, padx=5, pady=2)
-        
-        # Optimization controls
-        control_frame = ttk.Frame(main_frame)
-        control_frame.grid(row=3, column=0, sticky=(tk.W, tk.E), pady=10)
-        
-        optimize_button = ttk.Button(control_frame, text="Optimize Cuts", command=self.optimize)
-        optimize_button.pack(side=tk.LEFT, padx=5)
-        
-        visualize_button = ttk.Button(control_frame, text="Visualize", command=self.visualize)
-        visualize_button.pack(side=tk.LEFT, padx=5)
-        
-        # Results display
-        results_frame = ttk.LabelFrame(main_frame, text="Optimization Results", padding="10")
-        results_frame.grid(row=4, column=0, padx=5, pady=5, sticky=(tk.W, tk.E))
-        
-        self.results_text = tk.Text(results_frame, height=10, width=80)
-        self.results_text.pack(fill=tk.BOTH, expand=True)
-        
-        # Visualization area
-        self.visualization_frame = ttk.Frame(main_frame)
-        self.visualization_frame.grid(row=5, column=0, padx=5, pady=5, sticky=(tk.W, tk.E))
+    # Initialize session state
+    if 'cuts' not in st.session_state:
+        st.session_state.cuts = []
+    if 'stock_length' not in st.session_state:
+        st.session_state.stock_length = 2400.0
     
-    def add_cut(self):
-        try:
-            length = float(self.cut_length_entry.get())
-            quantity = int(self.quantity_entry.get())
-            
-            if length <= 0 or quantity <= 0:
-                raise ValueError("Values must be positive")
-            
-            self.cuts.append((length, quantity))
-            self.update_cuts_list()
-            
-            # Clear the input fields
-            self.cut_length_entry.delete(0, tk.END)
-            self.quantity_entry.delete(0, tk.END)
-            self.cut_length_entry.focus()
-            
-        except ValueError as e:
-            messagebox.showerror("Input Error", f"Please enter valid numbers:\n{e}")
-    
-    def remove_selected(self):
-        selected = self.cuts_tree.selection()
-        if selected:
-            item = self.cuts_tree.item(selected)
-            length, quantity = item['values']
-            self.cuts.remove((length, quantity))
-            self.update_cuts_list()
-    
-    def clear_cuts(self):
-        self.cuts = []
-        self.update_cuts_list()
-    
-    def update_cuts_list(self):
-        # Clear the tree
-        for row in self.cuts_tree.get_children():
-            self.cuts_tree.delete(row)
+    # Sidebar controls
+    with st.sidebar:
+        st.header("Settings")
+        st.session_state.stock_length = st.number_input(
+            "Stock Length (mm)",
+            min_value=100.0,
+            value=2400.0,
+            step=100.0
+        )
         
-        # Add new items
-        for length, quantity in self.cuts:
-            self.cuts_tree.insert("", tk.END, values=(length, quantity))
-    
-    def optimize(self):
-        try:
-            stock_length = float(self.stock_entry.get())
-            if not self.cuts:
-                raise ValueError("Please add at least one cut")
+        st.markdown("---")
+        st.header("Add Cuts")
+        
+        cut_cols = st.columns(2)
+        with cut_cols[0]:
+            cut_length = st.number_input(
+                "Cut Length (mm)",
+                min_value=1.0,
+                step=1.0
+            )
+        with cut_cols[1]:
+            quantity = st.number_input(
+                "Quantity",
+                min_value=1,
+                step=1
+            )
             
-            # First-Fit Decreasing algorithm for bin packing
-            self.results = []
-            cuts_to_allocate = sorted([(l, q) for l, q in self.cuts], key=lambda x: -x[0])
-            cuts_expanded = []
-            
-            # Expand all cuts into individual pieces
-            for length, quantity in cuts_to_allocate:
-                cuts_expanded.extend([length] * quantity)
-            
-            # Bin packing algorithm
-            bins = []
-            bin_capacity = stock_length
-            
-            for cut in sorted(cuts_expanded, reverse=True):
-                placed = False
-                for bin in bins:
-                    if sum(bin) + cut <= bin_capacity:
-                        bin.append(cut)
-                        placed = True
-                        break
+        if st.button("➕ Add Cut"):
+            if cut_length > st.session_state.stock_length:
+                st.error("Cut length cannot exceed stock length!")
+            else:
+                st.session_state.cuts.append((cut_length, quantity))
+                st.rerun()
                 
-                if not placed:
-                    bins.append([cut])
-            
-            # Save results
-            self.results = bins
-            
-            # Display results
-            self.results_text.delete(1.0, tk.END)
-            total_stock = len(bins)
-            total_waste = sum([bin_capacity - sum(bin) for bin in bins])
-            efficiency = (1 - (total_waste / (total_stock * bin_capacity))) * 100
-            
-            self.results_text.insert(tk.END, f"Optimization Results:\n")
-            self.results_text.insert(tk.END, f"- Total stock pieces needed: {total_stock}\n")
-            self.results_text.insert(tk.END, f"- Total waste: {total_waste:.2f} mm\n")
-            self.results_text.insert(tk.END, f"- Efficiency: {efficiency:.2f}%\n\n")
-            
-            for i, bin in enumerate(bins, 1):
-                waste = bin_capacity - sum(bin)
-                self.results_text.insert(tk.END, f"Stock Piece {i}:\n")
-                self.results_text.insert(tk.END, f"- Cuts: {', '.join(map(str, bin))}\n")
-                self.results_text.insert(tk.END, f"- Waste: {waste:.2f} mm ({waste/bin_capacity:.1%})\n\n")
-        
-        except ValueError as e:
-            messagebox.showerror("Optimization Error", str(e))
+        if st.button("🧹 Clear All"):
+            st.session_state.cuts = []
+            st.rerun()
     
-    def visualize(self):
-        if not self.results:
-            messagebox.showwarning("Visualization", "Please run optimization first")
-            return
-        
-        # Clear previous visualization
-        for widget in self.visualization_frame.winfo_children():
-            widget.destroy()
-        
-        stock_length = float(self.stock_entry.get())
-        
-        fig, ax = plt.subplots(figsize=(10, 5))
-        fig.set_facecolor('#f0f0f0')
-        
-        # Colors for different cut lengths
-        colors = plt.cm.tab20c.colors
-        
-        for i, bin in enumerate(self.results):
-            current_pos = 0
-            for j, cut in enumerate(bin):
-                color_idx = j % len(colors)
-                ax.barh(i, cut, left=current_pos, color=colors[color_idx], edgecolor='black')
-                # Add text label
-                ax.text(current_pos + cut/2, i, f"{cut}mm", ha='center', va='center', color='white')
-                current_pos += cut
+    # Main content area
+    tab1, tab2 = st.tabs(["📋 Input Cuts", "📊 Optimize & Visualize"])
+    
+    with tab1:
+        if not st.session_state.cuts:
+            st.info("No cuts added yet. Add cuts using the sidebar controls.")
+        else:
+            df = pd.DataFrame(
+                st.session_state.cuts,
+                columns=["Length (mm)", "Quantity"]
+            )
             
-            # Add waste portion
-            waste = stock_length - sum(bin)
-            ax.barh(i, waste, left=current_pos, color='lightgray', edgecolor='black', alpha=0.7)
-        
-        ax.set_yticks(range(len(self.results)))
-        ax.set_yticklabels([f"Stock {i+1}" for i in range(len(self.results))])
-        ax.set_xlabel('Length (mm)')
-        ax.set_title('Cut Optimization Visualization')
-        ax.grid(True, axis='x', alpha=0.3)
-        
-        canvas = FigureCanvasTkAgg(fig, master=self.visualization_frame)
-        canvas.draw()
-        canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
+            # Add total row
+            total_row = pd.DataFrame({
+                "Length (mm)": ["Total"],
+                "Quantity": [df["Quantity"].sum()]
+            })
+            df = pd.concat([df, total_row], ignore_index=True)
+            
+            st.dataframe(
+                df.style.apply(
+                    lambda x: ["background: #e6f3e6" if x.name == len(df)-1 else "" for i in x],
+                    axis=1
+                ),
+                use_container_width=True,
+                hide_index=True
+            )
+            
+            # Single cut deletion
+            if len(st.session_state.cuts) > 0:
+                st.write("Delete individual cuts:")
+                delete_cols = st.columns(6)
+                for i, cut in enumerate(st.session_state.cuts):
+                    with delete_cols[i % 6]:
+                        if st.button(
+                            f"❌ {cut[0]}mm × {cut[1]}",
+                            key=f"del_{i}",
+                            use_container_width=True
+                        ):
+                            st.session_state.cuts.pop(i)
+                            st.rerun()
+    
+    with tab2:
+        if not st.session_state.cuts:
+            st.warning("Please add cuts to optimize")
+        else:
+            if st.button("🔄 Run Optimization"):
+                with st.spinner("Optimizing cut plan..."):
+                    # Expand all cuts
+                    expanded_cuts = []
+                    for length, quantity in st.session_state.cuts:
+                        expanded_cuts.extend([length] * quantity)
+                    
+                    # First-Fit Decreasing algorithm
+                    expanded_cuts.sort(reverse=True)
+                    bins = []
+                    
+                    for cut in expanded_cuts:
+                        placed = False
+                        for bin in bins:
+                            if sum(bin) + cut <= st.session_state.stock_length:
+                                bin.append(cut)
+                                placed = True
+                                break
+                        if not placed:
+                            bins.append([cut])
+                    
+                    # Display results
+                    total_stock = len(bins)
+                    total_material = total_stock * st.session_state.stock_length
+                    used_material = sum(sum(bin) for bin in bins)
+                    efficiency = (used_material / total_material) * 100
+                    total_waste = total_material - used_material
+                    
+                    st.success(f"""
+                    **Optimization Complete!**  
+                    • Stock pieces needed: **{total_stock}**  
+                    • Material usage efficiency: **{efficiency:.2f}%**  
+                    • Total waste: **{total_waste:.1f} mm**  
+                    """)
+                    
+                    # Visualization
+                    fig, ax = plt.subplots(figsize=(10, max(3, len(bins)*0.5)))
+                    colors = plt.cm.tab20c.colors
+                    
+                    for i, bin in enumerate(bins):
+                        current_pos = 0
+                        for j, cut in enumerate(bin):
+                            ax.barh(
+                                f'Stock {i+1}',
+                                cut,
+                                left=current_pos,
+                                color=colors[j % len(colors)],
+                                edgecolor='black'
+                            )
+                            ax.text(
+                                current_pos + cut/2,
+                                i,
+                                f"{cut}mm",
+                                ha='center',
+                                va='center',
+                                color='white',
+                                fontsize=8
+                            )
+                            current_pos += cut
+                        
+                        # Waste portion
+                        waste = st.session_state.stock_length - sum(bin)
+                        ax.barh(
+                            f'Stock {i+1}',
+                            waste,
+                            left=current_pos,
+                            color='#cccccc',
+                            alpha=0.7,
+                            edgecolor='black'
+                        )
+                    
+                    ax.set_xlabel('Length (mm)')
+                    ax.set_title('Cut Optimization Plan', fontsize=12)
+                    ax.grid(True, axis='x', alpha=0.3)
+                    ax.set_axisbelow(True)
+                    
+                    st.pyplot(fig)
+                    
+                    # Detailed breakdown
+                    st.subheader("Detailed Breakdown")
+                    for i, bin in enumerate(bins, 1):
+                        waste = st.session_state.stock_length - sum(bin)
+                        st.write(f"""
+                        **Stock Piece {i}**
+                        - Cuts: {', '.join([f"{cut}mm" for cut in bin])}
+                        - Usage: {sum(bin)} mm ({sum(bin)/st.session_state.stock_length:.1%})
+                        - Waste: {waste} mm ({waste/st.session_state.stock_length:.1%})
+                        """)
 
 if __name__ == "__main__":
-    root = tk.Tk()
-    app = CutOptimizerApp(root)
-    root.mainloop()
+    main()
+
 
 
 
