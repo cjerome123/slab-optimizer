@@ -1,16 +1,18 @@
 import streamlit as st
 import matplotlib.pyplot as plt
 import pandas as pd
+import numpy as np
 from collections import defaultdict
+from itertools import combinations
 
 # Set page config
 st.set_page_config(
-    page_title="Cutlist Optimizer PRO",
+    page_title="Advanced Panel Optimizer",
     page_icon="✂️",
     layout="wide"
 )
 
-# Custom CSS for better styling
+# Custom CSS
 st.markdown("""
 <style>
 .stButton>button {
@@ -19,203 +21,256 @@ st.markdown("""
     color: white;
     background-color: #4CAF50;
 }
-.stTextInput>div>div>input, .stNumberInput>div>div>input {
-    padding: 10px !important;
-}
-.st-ax {
-    background-color: #f0f0f0;
+.css-1v0mbdj {
+    border-radius: 5px;
 }
 .stAlert {
     border-radius: 5px;
 }
+.css-1q8dd3e {
+    border-radius: 5px;
+}
+.title-wrapper {
+    display: flex;
+    align-items: center;
+}
+.title-wrapper img {
+    margin-right: 10px;
+}
 </style>
 """, unsafe_allow_html=True)
 
+def convert_to_cm(val_m):
+    return round(val_m * 100, 2)
+
+class PanelOptimizer:
+    def __init__(self):
+        self.stock_sizes = [
+            (60, 320), 
+            (70, 320),
+            (80, 400),
+            (90, 450)
+        ]
+        self.cuts = []
+    
+    def add_cuts_from_table(self, data):
+        cleaned_data = []
+        for row in data.split('\n'):
+            if '\t' in row:
+                dim1, dim2 = map(float, row.strip().split('\t'))
+                cleaned_data.append((convert_to_cm(dim1), convert_to_cm(dim2)))
+        return cleaned_data
+    
+    def optimize_panel_cutting(self, cuts, stock_size):
+        width, height = stock_size
+        bins = []
+        remaining_cuts = cuts.copy()
+        
+        # Try both orientations for each cut
+        oriented_cuts = []
+        for cut in remaining_cuts:
+            oriented_cuts.append(cut)
+            oriented_cuts.append((cut[1], cut[0]))  # Rotated 90 degrees
+        
+        # Sort by area descending
+        oriented_cuts.sort(key=lambda x: x[0]*x[1], reverse=True)
+        
+        while oriented_cuts:
+            # Create new bin
+            current_bin = {
+                'cuts': [],
+                'remaining_width': width,
+                'remaining_height': height,
+                'waste': width * height
+            }
+            
+            # Try to add cuts
+            i = 0
+            while i < len(oriented_cuts):
+                cut = oriented_cuts[i]
+                
+                # Check if cut fits in current orientation
+                if (cut[0] <= current_bin['remaining_width'] and 
+                    cut[1] <= current_bin['remaining_height']):
+                    
+                    current_bin['cuts'].append(cut)
+                    current_bin['waste'] -= cut[0] * cut[1]
+                    
+                    # Update remaining space (simple vertical stacking)
+                    current_bin['remaining_height'] -= cut[1]
+                    
+                    # Remove this cut from available cuts
+                    oriented_cuts.pop(i)
+                    
+                    # Reset iterator since we modified the list
+                    i = 0
+                else:
+                    i += 1
+            
+            bins.append(current_bin)
+        
+        return bins
+    
+    def visualize_panel(self, panel, stock_size):
+        fig, ax = plt.subplots(figsize=(8, 6))
+        ax.set_xlim(0, stock_size[0])
+        ax.set_ylim(0, stock_size[1])
+        ax.set_aspect('equal')
+        ax.grid(True, alpha=0.3)
+        ax.set_title(f"Panel Layout ({stock_size[0]}x{stock_size[1]}cm)", pad=20)
+        
+        current_y = 0
+        colors = plt.cm.tab10.colors
+        
+        for i, cut in enumerate(panel['cuts']):
+            rect = plt.Rectangle(
+                (0, current_y), 
+                cut[0], 
+                cut[1],
+                facecolor=colors[i % len(colors)],
+                edgecolor='black',
+                alpha=0.8,
+                label=f"{cut[0]}x{cut[1]}cm"
+            )
+            ax.add_patch(rect)
+            
+            # Add text label
+            ax.text(
+                cut[0]/2, 
+                current_y + cut[1]/2, 
+                f"{cut[0]}x{cut[1]}",
+                ha='center', 
+                va='center',
+                color='white',
+                fontweight='bold'
+            )
+            
+            current_y += cut[1]
+        
+        # Add waste area
+        if panel['remaining_height'] > 0:
+            waste_rect = plt.Rectangle(
+                (0, current_y), 
+                stock_size[0], 
+                panel['remaining_height'],
+                facecolor='lightgray',
+                edgecolor='black',
+                hatch='//',
+                alpha=0.4,
+                label='Waste'
+            )
+            ax.add_patch(waste_rect)
+        
+        ax.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
+        plt.tight_layout()
+        return fig
+
 def main():
-    st.title("✂️ Cutlist Optimizer PRO")
-    st.write("Optimize material usage with professional cut planning")
+    st.title("📏 Advanced Panel Optimizer")
+    st.markdown("Optimize material usage for rectangular cut pieces")
     
     # Initialize session state
-    if 'cuts' not in st.session_state:
-        st.session_state.cuts = []
-    if 'stock_length' not in st.session_state:
-        st.session_state.stock_length = 2400.0
+    if 'input_data' not in st.session_state:
+        st.session_state.input_data = """0.65\t2.53
+0.64\t2.28
+0.64\t0.73
+0.73\t2.28
+0.73\t3.14
+0.73\t0.73
+0.08\t1.67
+0.08\t2.53
+0.16\t0.83
+0.15\t0.82"""
+    
+    if 'cuts_cm' not in st.session_state:
+        st.session_state.cuts_cm = []
+    
+    # Create optimizer instance
+    optimizer = PanelOptimizer()
     
     # Sidebar controls
     with st.sidebar:
-        st.header("Settings")
-        st.session_state.stock_length = st.number_input(
-            "Stock Length (mm)",
-            min_value=100.0,
-            value=2400.0,
-            step=100.0
+        st.header("Stock Panel Sizes")
+        selected_stock = st.selectbox(
+            "Choose stock panel size:",
+            options=[f"{w}x{h}cm" for w, h in optimizer.stock_sizes],
+            index=0
         )
+        stock_width, stock_height = map(int, selected_stock.replace('cm','').split('x'))
         
         st.markdown("---")
-        st.header("Add Cuts")
+        st.header("Input Data")
         
-        cut_cols = st.columns(2)
-        with cut_cols[0]:
-            cut_length = st.number_input(
-                "Cut Length (mm)",
-                min_value=1.0,
-                step=1.0
-            )
-        with cut_cols[1]:
-            quantity = st.number_input(
-                "Quantity",
-                min_value=1,
-                step=1
-            )
-            
-        if st.button("➕ Add Cut"):
-            if cut_length > st.session_state.stock_length:
-                st.error("Cut length cannot exceed stock length!")
-            else:
-                st.session_state.cuts.append((cut_length, quantity))
-                st.rerun()
-                
-        if st.button("🧹 Clear All"):
-            st.session_state.cuts = []
+        input_data = st.text_area(
+            "Paste your cut dimensions (in meters):",
+            value=st.session_state.input_data,
+            height=200
+        )
+        
+        if st.button("Process Input Data"):
+            st.session_state.input_data = input_data
+            st.session_state.cuts_cm = optimizer.add_cuts_from_table(input_data)
             st.rerun()
     
-    # Main content area
-    tab1, tab2 = st.tabs(["📋 Input Cuts", "📊 Optimize & Visualize"])
+    # Main content
+    st.header("Cut Pieces")
     
-    with tab1:
-        if not st.session_state.cuts:
-            st.info("No cuts added yet. Add cuts using the sidebar controls.")
-        else:
-            df = pd.DataFrame(
-                st.session_state.cuts,
-                columns=["Length (mm)", "Quantity"]
-            )
-            
-            # Add total row
-            total_row = pd.DataFrame({
-                "Length (mm)": ["Total"],
-                "Quantity": [df["Quantity"].sum()]
-            })
-            df = pd.concat([df, total_row], ignore_index=True)
-            
-            st.dataframe(
-                df.style.apply(
-                    lambda x: ["background: #e6f3e6" if x.name == len(df)-1 else "" for i in x],
-                    axis=1
-                ),
-                use_container_width=True,
-                hide_index=True
-            )
-            
-            # Single cut deletion
-            if len(st.session_state.cuts) > 0:
-                st.write("Delete individual cuts:")
-                delete_cols = st.columns(6)
-                for i, cut in enumerate(st.session_state.cuts):
-                    with delete_cols[i % 6]:
-                        if st.button(
-                            f"❌ {cut[0]}mm × {cut[1]}",
-                            key=f"del_{i}",
-                            use_container_width=True
-                        ):
-                            st.session_state.cuts.pop(i)
-                            st.rerun()
-    
-    with tab2:
-        if not st.session_state.cuts:
-            st.warning("Please add cuts to optimize")
-        else:
-            if st.button("🔄 Run Optimization"):
-                with st.spinner("Optimizing cut plan..."):
-                    # Expand all cuts
-                    expanded_cuts = []
-                    for length, quantity in st.session_state.cuts:
-                        expanded_cuts.extend([length] * quantity)
-                    
-                    # First-Fit Decreasing algorithm
-                    expanded_cuts.sort(reverse=True)
-                    bins = []
-                    
-                    for cut in expanded_cuts:
-                        placed = False
-                        for bin in bins:
-                            if sum(bin) + cut <= st.session_state.stock_length:
-                                bin.append(cut)
-                                placed = True
-                                break
-                        if not placed:
-                            bins.append([cut])
-                    
-                    # Display results
-                    total_stock = len(bins)
-                    total_material = total_stock * st.session_state.stock_length
-                    used_material = sum(sum(bin) for bin in bins)
-                    efficiency = (used_material / total_material) * 100
-                    total_waste = total_material - used_material
-                    
-                    st.success(f"""
-                    **Optimization Complete!**  
-                    • Stock pieces needed: **{total_stock}**  
-                    • Material usage efficiency: **{efficiency:.2f}%**  
-                    • Total waste: **{total_waste:.1f} mm**  
-                    """)
-                    
-                    # Visualization
-                    fig, ax = plt.subplots(figsize=(10, max(3, len(bins)*0.5)))
-                    colors = plt.cm.tab20c.colors
-                    
-                    for i, bin in enumerate(bins):
-                        current_pos = 0
-                        for j, cut in enumerate(bin):
-                            ax.barh(
-                                f'Stock {i+1}',
-                                cut,
-                                left=current_pos,
-                                color=colors[j % len(colors)],
-                                edgecolor='black'
-                            )
-                            ax.text(
-                                current_pos + cut/2,
-                                i,
-                                f"{cut}mm",
-                                ha='center',
-                                va='center',
-                                color='white',
-                                fontsize=8
-                            )
-                            current_pos += cut
+    if not st.session_state.cuts_cm:
+        st.warning("No cut pieces loaded. Add data in the sidebar.")
+    else:
+        # Display cut list
+        df = pd.DataFrame(
+            [(w, h) for w, h in st.session_state.cuts_cm],
+            columns=["Width (cm)", "Height (cm)"]
+        )
+        st.dataframe(df.style.highlight_max(axis=0), use_container_width=True)
+        
+        # Calculate total area
+        total_area = sum(w * h for w, h in st.session_state.cuts_cm)
+        st.markdown(f"**Total cut area:** {total_area:.2f} cm²")
+        
+        # Optimization
+        st.header("Optimization Results")
+        
+        if st.button(f"Optimize for {selected_stock} panels"):
+            with st.spinner("Calculating optimal layout..."):
+                results = optimizer.optimize_panel_cutting(
+                    st.session_state.cuts_cm,
+                    (stock_width, stock_height)
+                )
+                
+                # Summary stats
+                total_panels = len(results)
+                total_stock_area = total_panels * stock_width * stock_height
+                efficiency = (total_area / total_stock_area) * 100
+                total_waste = total_stock_area - total_area
+                
+                col1, col2, col3 = st.columns(3)
+                col1.metric("Panels Needed", total_panels)
+                col2.metric("Usage Efficiency", f"{efficiency:.1f}%")
+                col3.metric("Total Waste", f"{total_waste:.1f} cm²")
+                
+                # Visualizations
+                st.subheader("Panel Layouts")
+                cols = st.columns(2)
+                
+                for i, panel in enumerate(results[:4]):  # Show first 4 panels
+                    with cols[i % 2]:
+                        st.markdown(f"**Panel {i+1}**")
+                        fig = optimizer.visualize_panel(panel, (stock_width, stock_height))
+                        st.pyplot(fig)
                         
-                        # Waste portion
-                        waste = st.session_state.stock_length - sum(bin)
-                        ax.barh(
-                            f'Stock {i+1}',
-                            waste,
-                            left=current_pos,
-                            color='#cccccc',
-                            alpha=0.7,
-                            edgecolor='black'
-                        )
-                    
-                    ax.set_xlabel('Length (mm)')
-                    ax.set_title('Cut Optimization Plan', fontsize=12)
-                    ax.grid(True, axis='x', alpha=0.3)
-                    ax.set_axisbelow(True)
-                    
-                    st.pyplot(fig)
-                    
-                    # Detailed breakdown
-                    st.subheader("Detailed Breakdown")
-                    for i, bin in enumerate(bins, 1):
-                        waste = st.session_state.stock_length - sum(bin)
-                        st.write(f"""
-                        **Stock Piece {i}**
-                        - Cuts: {', '.join([f"{cut}mm" for cut in bin])}
-                        - Usage: {sum(bin)} mm ({sum(bin)/st.session_state.stock_length:.1%})
-                        - Waste: {waste} mm ({waste/st.session_state.stock_length:.1%})
-                        """)
+                        # Show cut list for this panel
+                        if panel['cuts']:
+                            panel_cuts = pd.DataFrame(
+                                panel['cuts'],
+                                columns=["Width", "Height"]
+                            )
+                            st.dataframe(panel_cuts, hide_index=True)
 
 if __name__ == "__main__":
     main()
+
 
 
 
