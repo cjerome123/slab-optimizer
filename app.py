@@ -1,20 +1,28 @@
-# Real-time slab optimizer with global optimization for better slab usage
+# Quartz Slab Optimizer - Rebuilt for Structured Shelf Packing
 
 import streamlit as st
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
-from collections import defaultdict
-import itertools
-import math
+from typing import List, Tuple
 
-QUARTZ_SLAB_SIZES = [60, 70, 80, 90, 100, 160]
-SLAB_FIXED_LENGTH = 320
+QUARTZ_SLAB_SIZES = [60, 70, 80, 90, 100, 160]  # in cm
+SLAB_FIXED_LENGTH = 320  # in cm
 
 st.set_page_config(page_title="Quartz Slab Optimizer", layout="wide")
-st.title("Quartz Slab Optimizer (Globally Optimized)")
+st.title("Quartz Slab Optimizer")
 st.markdown("Enter required dimensions in **meters**, one per line (e.g. `0.65 2.53`) and click Run")
 
 # --- Input ---
+def parse_input(text: str) -> List[Tuple[float, float]]:
+    pieces = []
+    for line in text.strip().split("\n"):
+        try:
+            a, b = map(float, line.strip().split())
+            pieces.append((min(a, b) * 100, max(a, b) * 100))  # height, width
+        except:
+            continue
+    return pieces
+
 input_text = st.text_area("Dimensions:", value="""0.65 2.53
 0.64 2.27
 0.64 0.73
@@ -26,105 +34,82 @@ input_text = st.text_area("Dimensions:", value="""0.65 2.53
 0.16 0.83
 0.15 0.82""", height=200)
 
-@st.cache_data(show_spinner=False)
-def compute_optimal_slabbing(pieces_raw):
-    def can_fit(piece, x, y, placed, slab_w, slab_h):
-        px, py = piece
-        if x + px > slab_w or y + py > slab_h:
-            return False
-        for ox, oy, ow, oh in placed:
-            if not (x + px <= ox or x >= ox + ow or y + py <= oy or y >= oy + oh):
-                return False
-        return True
+# --- Shelf-based Packing ---
+def shelf_pack(pieces: List[Tuple[float, float]], slab_width: float, slab_height: float):
+    remaining = sorted(pieces, key=lambda x: x[1], reverse=True)  # sort by width desc
+    slabs = []
 
-    def pack_into_slab(pieces, slab_w, slab_h):
-        placed = []
-        for piece in pieces:
-            pw, ph = piece
+    while remaining:
+        current_slab = []
+        y = 0
+        shelf_height = 0
+        shelf = []
+        while remaining:
             fit = False
-            for orientation in [(pw, ph), (ph, pw)]:
-                ow, oh = orientation
-                for y in range(0, slab_h + 1):
-                    for x in range(0, slab_w + 1):
-                        if can_fit((ow, oh), x, y, placed, slab_w, slab_h):
-                            placed.append((x, y, ow, oh))
-                            fit = True
-                            break
-                    if fit:
-                        break
-                if fit:
+            for i, (h, w) in enumerate(remaining):
+                if w > slab_width or h > slab_height:
+                    continue
+                if sum(p[1] for p in shelf) + w <= slab_width:
+                    shelf.append((h, w))
+                    shelf_height = max(shelf_height, h)
+                    remaining.pop(i)
+                    fit = True
                     break
             if not fit:
-                return None
-        return placed
-
-    def globally_pack(pieces, slab_w, slab_h):
-        best_layout = []
-        remaining = pieces.copy()
-        slabs = []
-
-        while remaining:
-            n = len(remaining)
-            best = None
-            best_fit = None
-            for r in range(n, 0, -1):
-                for combo in itertools.combinations(remaining, r):
-                    layout = pack_into_slab(list(combo), slab_w, slab_h)
-                    if layout:
-                        if not best or sum(w*h for _, _, w, h in layout) > sum(w*h for _, _, w, h in best):
-                            best = layout
-                            best_fit = combo
-                if best:
+                if not shelf:
                     break
-            if best:
-                slabs.append(best)
-                for p in best_fit:
-                    remaining.remove(p)
-            else:
-                break
+                x = 0
+                for sh, sw in shelf:
+                    current_slab.append((x, y, sw, sh))
+                    x += sw
+                y += shelf_height
+                shelf = []
+                shelf_height = 0
+                if y >= slab_height:
+                    break
+        if shelf:
+            x = 0
+            for sh, sw in shelf:
+                current_slab.append((x, y, sw, sh))
+                x += sw
+        slabs.append(current_slab)
 
-        used_area = sum(w*h for _, _, w, h in sum(slabs, []))
-        total_area = len(slabs) * slab_w * slab_h
-        waste = total_area - used_area
+    return slabs
 
-        return {
-            "strategy": "Uniform",
-            "slab_size": (slab_w, slab_h),
-            "layout": slabs,
-            "waste": waste,
-            "slab_count": len(slabs)
-        }
-
+# --- Optimization ---
+def find_best_slab(pieces: List[Tuple[float, float]]):
     best_result = None
     for slab_h in QUARTZ_SLAB_SIZES:
-        result = globally_pack(pieces_raw, SLAB_FIXED_LENGTH, slab_h)
-        if not best_result or result['waste'] < best_result['waste']:
-            best_result = result
-
+        layout = shelf_pack(pieces.copy(), slab_width=SLAB_FIXED_LENGTH, slab_height=slab_h)
+        used_area = sum(w * h for slab in layout for _, _, w, h in slab)
+        total_area = len(layout) * SLAB_FIXED_LENGTH * slab_h
+        waste = total_area - used_area
+        if not best_result or waste < best_result['waste']:
+            best_result = {
+                "layout": layout,
+                "slab_size": (SLAB_FIXED_LENGTH, slab_h),
+                "slab_count": len(layout),
+                "waste": waste
+            }
     return best_result
 
+# --- Run ---
 if st.button("Run Slabbing"):
-    pieces_raw = []
-    for line in input_text.strip().split("\n"):
-        try:
-            a, b = map(float, line.strip().split())
-            pieces_raw.append((a * 100, b * 100))
-        except:
-            continue
-
-    if not pieces_raw:
+    pieces = parse_input(input_text)
+    if not pieces:
         st.error("Invalid input.")
         st.stop()
 
-    result = compute_optimal_slabbing(pieces_raw)
+    result = find_best_slab(pieces)
+    slab_w, slab_h = result['slab_size']
+    smaller, larger = sorted([slab_w, slab_h])
 
-    st.subheader(f"Strategy: {result['strategy']}")
+    st.subheader("Results")
     st.write(f"Total Slabs: {result['slab_count']}")
     st.write(f"Waste: {result['waste']/10000:.2f} m²")
-    sw, sh = result["slab_size"]
-    smaller, larger = sorted([sw, sh])
-    st.write(f"Slab Size: {int(smaller)} x {int(larger)} cm")
+    st.write(f"Recommended Slab Size: {int(smaller)} x {int(larger)} cm")
 
+    # --- Visualization ---
     def visualize_slab(slab_data, slab_w, slab_h):
         fig, ax = plt.subplots(figsize=(12, 3))
         ax.set_xlim(0, slab_w)
@@ -134,11 +119,12 @@ if st.button("Run Slabbing"):
         for x, y, w, h in slab_data:
             rect = patches.Rectangle((x, y), w, h, edgecolor='black', facecolor='skyblue', lw=1)
             ax.add_patch(rect)
-            ax.text(x + w/2, y + h/2, f"{int(w)}×{int(h)}", ha='center', va='center', fontsize=8)
+            ax.text(x + w / 2, y + h / 2, f"{int(w)}×{int(h)}", ha='center', va='center', fontsize=8)
         st.pyplot(fig)
 
-    for slab in result["layout"]:
-        visualize_slab(slab, *result["slab_size"])
+    for slab in result['layout']:
+        visualize_slab(slab, slab_w, slab_h)
+
 
 
 
