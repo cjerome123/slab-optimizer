@@ -4,30 +4,31 @@ import streamlit as st
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 from typing import List, Tuple, Dict
+from itertools import product, islice
 
-# --- Available slab sizes toggle ---
-slab_options_all = [60, 70, 80, 90, 100, 160]
-available_slab_sizes = st.multiselect(
-    "Select available slab sizes (cm)",
-    options=slab_options_all,
-    default=[60, 70, 80, 90, 100, 160],
-    format_func=lambda x: f"{x} cm height"
-)
-
-QUARTZ_SLAB_SIZES = sorted(available_slab_sizes)  # in cm
-SLAB_FIXED_LENGTH = 320  # in cm
-
+# --- Page Setup ---
 st.set_page_config(page_title="Quartz Slab Optimizer", layout="wide")
 st.title("Quartz Slab Optimizer")
 st.markdown("Enter required dimensions in **meters**, one per line (e.g. `0.65 2.53`) and click Run")
 
-# --- Input ---
+# --- Slab Configuration ---
+SLAB_FIXED_LENGTH = 320  # cm
+SLAB_OPTIONS_ALL = [60, 70, 80, 90, 100, 160]
+available_slab_sizes = st.multiselect(
+    "Select available slab sizes (cm)",
+    options=SLAB_OPTIONS_ALL,
+    default=SLAB_OPTIONS_ALL,
+    format_func=lambda x: f"{x} cm height"
+)
+QUARTZ_SLAB_SIZES = sorted(available_slab_sizes)
+
+# --- Input Parser ---
 def parse_input(text: str) -> List[Tuple[float, float]]:
     pieces = []
     for line in text.strip().split("\n"):
         try:
             a, b = map(float, line.strip().split())
-            pieces.append((min(a, b) * 100, max(a, b) * 100))  # height, width in cm
+            pieces.append((min(a, b) * 100, max(a, b) * 100))  # convert to cm (height, width)
         except:
             continue
     return pieces
@@ -46,32 +47,30 @@ input_text = st.text_area("Dimensions:", value="""0.63 3.01
 0.13 1.03
 0.13 1.03""", height=200)
 
-# --- Bin Packing with Best Fit ---
-def best_fit_pack(pieces: List[Tuple[float, float]], slab_width: float, slab_height: float):
+# --- Best Fit Bin-Packing ---
+def best_fit_pack(pieces: List[Tuple[float, float]], slab_w: float, slab_h: float):
     bins = []
-    sorted_pieces = sorted(pieces, key=lambda x: max(x[0], x[1]) * min(x[0], x[1]), reverse=True)
+    sorted_pieces = sorted(pieces, key=lambda x: x[0] * x[1], reverse=True)
 
-    for original_h, original_w in sorted_pieces:
-        orientations = [(original_h, original_w), (original_w, original_h)]
+    for ph, pw in sorted_pieces:
+        orientations = [(ph, pw), (pw, ph)]
         placed = False
 
         for h, w in orientations:
             for slab in bins:
-                x = slab["x_cursor"]
-                y = slab["y_cursor"]
-                row_height = slab["row_height"]
+                x, y = slab["x_cursor"], slab["y_cursor"]
+                row_h = slab["row_height"]
 
-                # Try placing in current row
-                if x + w <= slab_width and y + h <= slab_height:
+                if x + w <= slab_w and y + h <= slab_h:
                     slab["rects"].append((x, y, w, h))
                     slab["x_cursor"] += w
-                    slab["row_height"] = max(row_height, h)
+                    slab["row_height"] = max(row_h, h)
                     placed = True
                     break
-                # Try starting new row
-                elif y + row_height + h <= slab_height and w <= slab_width:
+
+                elif y + row_h + h <= slab_h and w <= slab_w:
                     slab["x_cursor"] = w
-                    slab["y_cursor"] += row_height
+                    slab["y_cursor"] += row_h
                     slab["row_height"] = h
                     slab["rects"].append((0, slab["y_cursor"], w, h))
                     placed = True
@@ -80,23 +79,57 @@ def best_fit_pack(pieces: List[Tuple[float, float]], slab_width: float, slab_hei
                 break
 
         if not placed:
-            # Start new slab with best orientation that fits
             for h, w in orientations:
-                if w <= slab_width and h <= slab_height:
+                if w <= slab_w and h <= slab_h:
                     bins.append({
                         "x_cursor": w,
                         "y_cursor": 0,
                         "row_height": h,
                         "rects": [(0, 0, w, h)]
                     })
-                    placed = True
                     break
 
-        if not placed:
-            # Piece doesn't fit even in new slab (shouldn't happen with proper filtering)
-            continue
-
     return [slab["rects"] for slab in bins]
+
+# --- Optimizer ---
+def find_best_mixed_slabs(pieces: List[Tuple[float, float]]):
+    best_result = None
+    min_slabs, min_waste = float('inf'), float('inf')
+
+    valid_heights = [h for h in QUARTZ_SLAB_SIZES if all(p[0] <= h for p in pieces)]
+    all_assignments = islice(product(valid_heights, repeat=len(pieces)), 50000)
+
+    for combo in all_assignments:
+        assigned: Dict[int, List[Tuple[float, float]]] = {}
+        for i, slab_h in enumerate(combo):
+            assigned.setdefault(slab_h, []).append(pieces[i])
+
+        layout, waste, slab_count, records = [], 0, 0, []
+
+        for h, group in assigned.items():
+            if not group:
+                continue
+            packed = best_fit_pack(group, SLAB_FIXED_LENGTH, h)
+            used = sum(w * h for slab in packed for _, _, w, h in slab)
+            total = len(packed) * SLAB_FIXED_LENGTH * h
+            layout.extend([(slab, SLAB_FIXED_LENGTH, h) for slab in packed])
+            records.extend([(SLAB_FIXED_LENGTH, h)] * len(packed))
+            waste += total - used
+            slab_count += len(packed)
+
+        if slab_count < min_slabs or (
+            slab_count == min_slabs and (
+                waste < min_waste or (
+                    waste == min_waste and sorted(records) < sorted(best_result["slab_records"]))):
+            best_result = {
+                "layout": layout,
+                "waste": waste,
+                "slab_count": slab_count,
+                "slab_records": records
+            }
+            min_slabs, min_waste = slab_count, waste
+
+    return best_result if best_result else {"layout": [], "waste": 0, "slab_count": 0, "slab_records": []}
 
 # --- Run Button ---
 if st.button("Run Slabbing"):
@@ -106,68 +139,22 @@ if st.button("Run Slabbing"):
     st.subheader(f"Recommended Layout: {result['slab_count']} slab(s)")
     st.write(f"Estimated Waste Area: {result['waste'] / 10000:.2f} m²")
 
-    # --- Visualize Layout ---
+    # --- Visualization ---
     cols = st.columns(min(len(result['layout']), 3))
-    for idx, (slab, slab_w, slab_h) in enumerate(result['layout']):
+    for idx, (slab, w, h) in enumerate(result['layout']):
         with cols[idx % len(cols)]:
-            fig, ax = plt.subplots(figsize=(6, slab_h / 60))
-            ax.set_xlim(0, slab_w)
-            ax.set_ylim(0, slab_h)
-            for x, y, w, h in slab:
-                rect = patches.Rectangle((x, y), w, h, linewidth=1, edgecolor='black', facecolor='skyblue')
+            fig, ax = plt.subplots(figsize=(6, h / 60))
+            ax.set_xlim(0, w)
+            ax.set_ylim(0, h)
+            for x, y, pw, ph in slab:
+                rect = patches.Rectangle((x, y), pw, ph, linewidth=1, edgecolor='black', facecolor='skyblue')
                 ax.add_patch(rect)
-                ax.text(x + w / 2, y + h / 2, f"{int(h)}x{int(w)}", ha='center', va='center', fontsize=8)
+                ax.text(x + pw / 2, y + ph / 2, f"{int(ph)}x{int(pw)}", ha='center', va='center', fontsize=8)
             ax.set_xticks([])
             ax.set_yticks([])
-            ax.set_title(f"{int(slab_h)} x {int(slab_w)} cm")
+            ax.set_title(f"{int(h)} x {int(w)} cm")
             st.pyplot(fig)
 
-
-# --- Mixed Slab Optimization ---
-def find_best_mixed_slabs(pieces: List[Tuple[float, float]]):
-    from itertools import product, combinations, islice
-
-    best_result = None
-    min_slabs = float('inf')
-    min_waste = float('inf')
-
-    valid_slab_heights = [h for h in QUARTZ_SLAB_SIZES if all(p[0] <= h for p in pieces)]
-    all_assignments = islice(product(valid_slab_heights, repeat=len(pieces)), 50000)
-
-    for i, combo in enumerate(all_assignments):
-        assignment: Dict[int, List[Tuple[float, float]]] = {}
-        for idx, slab_h in enumerate(combo):
-            assignment.setdefault(slab_h, []).append(pieces[idx])
-
-        layout_all = []
-        waste_all = 0
-        count_all = 0
-        slab_records = []
-
-        for slab_h, group in assignment.items():
-            if not group:
-                continue
-            layout = best_fit_pack(group, SLAB_FIXED_LENGTH, slab_h)
-            used_area = sum(w * h for slab in layout for _, _, w, h in slab)
-            total_area = len(layout) * SLAB_FIXED_LENGTH * slab_h
-            waste = total_area - used_area
-
-            layout_all.extend([(slab, SLAB_FIXED_LENGTH, slab_h) for slab in layout])
-            slab_records.extend([(SLAB_FIXED_LENGTH, slab_h)] * len(layout))
-            waste_all += waste
-            count_all += len(layout)
-
-        if count_all < min_slabs or (count_all == min_slabs and (waste_all < min_waste or (waste_all == min_waste and sorted(slab_records) < sorted(best_result["slab_records"])))):
-            min_slabs = count_all
-            min_waste = waste_all
-            best_result = {
-                "layout": layout_all,
-                "waste": waste_all,
-                "slab_count": count_all,
-                "slab_records": slab_records
-            }
-
-    return best_result if best_result else {"layout": [], "waste": 0, "slab_count": 0, "slab_records": []}
 
 
 
