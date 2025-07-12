@@ -5,7 +5,16 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 from typing import List, Tuple, Dict
 
-QUARTZ_SLAB_SIZES = [60, 70, 80, 90, 100, 160]  # in cm
+# --- Available slab sizes toggle ---
+slab_options_all = [60, 70, 80, 90, 100, 160]
+available_slab_sizes = st.multiselect(
+    "Select available slab sizes (cm)",
+    options=slab_options_all,
+    default=[60, 70, 80, 90, 100, 160],
+    format_func=lambda x: f"{x} cm height"
+)
+
+QUARTZ_SLAB_SIZES = sorted(available_slab_sizes)  # in cm
 SLAB_FIXED_LENGTH = 320  # in cm
 
 st.set_page_config(page_title="Quartz Slab Optimizer", layout="wide")
@@ -148,6 +157,7 @@ if st.button("Run Slabbing"):
 
     for slab, slab_w, slab_h in result['layout']:
         visualize_slab(slab, slab_w, slab_h)
+
 
 
 
