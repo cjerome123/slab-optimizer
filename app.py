@@ -68,6 +68,8 @@ def find_best_slab(pieces: List[Tuple[float, float]]):
     best_result = None
     for slab_h in QUARTZ_SLAB_SIZES:
         layout = best_fit_pack(pieces.copy(), slab_width=SLAB_FIXED_LENGTH, slab_height=slab_h)
+        if not layout:
+            continue  # Skip if nothing could be packed in this slab size
         used_area = sum(w * h for slab in layout for _, _, w, h in slab)
         total_area = len(layout) * SLAB_FIXED_LENGTH * slab_h
         waste = total_area - used_area
@@ -88,6 +90,10 @@ if st.button("Run Slabbing"):
         st.stop()
 
     result = find_best_slab(pieces)
+    if result is None:
+        st.error("No slab size could accommodate your pieces.")
+        st.stop()
+
     slab_w, slab_h = result['slab_size']
     smaller, larger = sorted([slab_w, slab_h])
 
@@ -111,6 +117,7 @@ if st.button("Run Slabbing"):
 
     for slab in result['layout']:
         visualize_slab(slab, slab_w, slab_h)
+
 
 
 
