@@ -120,9 +120,14 @@ def find_best_mixed_slabs(pieces: List[Tuple[float, float]]):
         if slab_count < min_slabs or (
             slab_count == min_slabs and (
                 waste < min_waste or (
-                    waste == min_waste and sorted(records) < sorted(best_result["slab_records"]) or (
-                    sorted(records) == sorted(best_result["slab_records"]) and
-                    sum(h for _, h in records) / len(records) < sum(h for _, h in best_result["slab_records"]) / len(best_result["slab_records"])
+                    waste == min_waste and (
+                        sorted(records) < sorted(best_result["slab_records"]) or (
+                            sorted(records) == sorted(best_result["slab_records"]) and
+                            sum(h for _, h in records) / len(records) < sum(h for _, h in best_result["slab_records"]) / len(best_result["slab_records"])
+                        )
+                    )
+                )
+            )
                 )
             )
         ):
@@ -159,6 +164,7 @@ if st.button("Run Slabbing"):
             ax.set_yticks([])
             ax.set_title(f"{int(h)} x {int(w)} cm")
             st.pyplot(fig)
+
 
 
 
