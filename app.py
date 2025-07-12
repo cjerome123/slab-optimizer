@@ -85,18 +85,20 @@ def fit_parts_to_slabs(parts, slabs):
 
 def plot_layout(slabs):
     for i, (sw, sh, layout, slab_id) in enumerate(slabs):
-        fig_width = min(10, sw / 20)
-        fig_height = min(5, sh / 30)
+        fig_width = sw / 50  # closer to Cutlist Optimizer style
+        fig_height = sh / 50
         fig, ax = plt.subplots(figsize=(fig_width, fig_height))
-        ax.set_title(f"Slab {i+1} - {sw:.0f}cm x {sh:.0f}cm")
+        ax.set_title(f"Slab {i+1} - {sw:.0f}cm x {sh:.0f}cm", fontsize=10)
         ax.set_xlim(0, sw)
         ax.set_ylim(0, sh)
-        ax.set_aspect('auto')
+        ax.set_aspect('equal')
         ax.invert_yaxis()
+        ax.axis('off')  # cleaner look
 
         for x, y, w, h in layout:
-            ax.add_patch(Rectangle((x, y), w, h, edgecolor='black', facecolor='#aad3df'))
-            ax.text(x + w/2, y + h/2, f"{w/100:.2f}x{h/100:.2f}m", ha='center', va='center', fontsize=8)
+            rect = Rectangle((x, y), w, h, edgecolor='black', facecolor='#aad3df', linewidth=0.8)
+            ax.add_patch(rect)
+            ax.text(x + w/2, y + h/2, f"{w/100:.2f}x{h/100:.2f}m", ha='center', va='center', fontsize=6)
 
         st.pyplot(fig)
 
@@ -121,6 +123,7 @@ if st.sidebar.button("🔄 Optimize"):
             st.write(f"{w/100:.2f} x {h/100:.2f} m")
     else:
         st.success("All parts were fitted into slabs!")
+
 
 
 
