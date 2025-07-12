@@ -49,28 +49,30 @@ input_text = st.text_area("Dimensions:", value="""0.63 3.01
 # --- Bin Packing with Best Fit ---
 def best_fit_pack(pieces: List[Tuple[float, float]], slab_width: float, slab_height: float):
     bins = []
-    for h, w in sorted(pieces, key=lambda x: x[0]*x[1], reverse=True):
+    sorted_pieces = sorted(pieces, key=lambda x: x[0] * x[1], reverse=True)
+
+    for h, w in sorted_pieces:
         placed = False
         for slab in bins:
+            positions = []
             x = slab["x_cursor"]
             y = slab["y_cursor"]
             row_height = slab["row_height"]
-            rects = slab["rects"]
 
-            if w > slab_width or h > slab_height:
-                continue
+            # Try placing in current row
+            if x + w <= slab_width and y + h <= slab_height:
+                positions.append((x, y))
 
-            if x + w <= slab_width:
-                rects.append((x, y, w, h))
-                slab["x_cursor"] += w
-                slab["row_height"] = max(row_height, h)
-                placed = True
-                break
-            elif y + row_height + h <= slab_height:
-                slab["x_cursor"] = w
-                slab["y_cursor"] += row_height
-                slab["row_height"] = h
-                rects.append((0, slab["y_cursor"], w, h))
+            # Try starting new row
+            if y + row_height + h <= slab_height and w <= slab_width:
+                positions.append((0, y + row_height))
+
+            if positions:
+                px, py = positions[0]  # pick first fit
+                slab["rects"].append((px, py, w, h))
+                slab["x_cursor"] = px + w if py == y else w
+                slab["y_cursor"] = py if py == y else py
+                slab["row_height"] = max(slab["row_height"], h)
                 placed = True
                 break
 
@@ -81,6 +83,7 @@ def best_fit_pack(pieces: List[Tuple[float, float]], slab_width: float, slab_hei
                 "row_height": h,
                 "rects": [(0, 0, w, h)]
             })
+
     return [slab["rects"] for slab in bins]
 
 # --- Mixed Slab Optimization ---
@@ -95,7 +98,7 @@ def find_best_mixed_slabs(pieces: List[Tuple[float, float]]):
     valid_slab_heights = [h for h in QUARTZ_SLAB_SIZES if all(p[0] <= h for p in pieces)]
     slab_combos = product(valid_slab_heights, repeat=len(pieces))
 
-    max_combos = 2000  # limit for performance
+    max_combos = 10000  # limit for performance
     for i, combo in enumerate(slab_combos):
         if i > max_combos:
             break
@@ -169,6 +172,7 @@ if st.button("Run Slabbing"):
 
     for slab, slab_w, slab_h in result['layout']:
         visualize_slab(slab, slab_w, slab_h)
+
 
 
 
