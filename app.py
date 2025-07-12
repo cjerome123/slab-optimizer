@@ -1,180 +1,157 @@
-# Quartz Slab Optimizer - Mixed Slab Bin-Packing Optimization
-
 import streamlit as st
+from rectpack import newPacker
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
-from typing import List, Tuple, Dict
-from itertools import product, islice
+from itertools import combinations_with_replacement
+from collections import Counter, defaultdict
+import random
 
-# --- Page Setup ---
-st.set_page_config(page_title="Quartz Slab Optimizer", layout="wide")
-st.title("Quartz Slab Optimizer")
-st.markdown("Enter required dimensions in **meters**, one per line (e.g. `0.65 2.53`) and click Run")
+# ──────────────────────────────────────────────────
+st.set_page_config(page_title="Slab Optimizer", layout="wide", initial_sidebar_state="expanded")
+st.markdown("""
+    <style>
+        .block-container {
+            padding-top: 2rem;
+            padding-bottom: 2rem;
+        }
+        .stTextArea textarea {
+            font-size: 14px;
+        }
+        .stButton>button {
+            padding: 0.5rem 1.2rem;
+            border-radius: 8px;
+        }
+    </style>
+""", unsafe_allow_html=True)
+st.markdown("<h2 style='font-size:2.2rem;margin-bottom:0.5rem;'>🧱 Slab Cutting Optimizer</h2>", unsafe_allow_html=True)
+st.sidebar.title("⚙️ Settings")
 
-# --- Slab Configuration ---
-SLAB_FIXED_LENGTH = 320  # cm
-SLAB_OPTIONS_ALL = [60, 70, 80, 90, 100, 160]
-available_slab_sizes = st.multiselect(
-    "Select available slab sizes (cm)",
-    options=SLAB_OPTIONS_ALL,
-    default=SLAB_OPTIONS_ALL,
-    format_func=lambda x: f"{x} cm height"
-)
-QUARTZ_SLAB_SIZES = sorted(available_slab_sizes)
-
-# --- Input Parser ---
-def parse_input(text: str) -> List[Tuple[float, float]]:
-    pieces = []
-    for line in text.strip().split("\n"):
-        try:
-            a, b = map(float, line.strip().split())
-            pieces.append((min(a, b) * 100, max(a, b) * 100))  # convert to cm (height, width)
-        except:
-            continue
-    return pieces
-
-input_text = st.text_area("Dimensions:", height=200)
-
-# --- Packing Logic ---
-def best_fit_pack(pieces: List[Tuple[float, float]], slab_w: float, slab_h: float):
-    bins = []
-    sorted_pieces = sorted(pieces, key=lambda x: x[0] * x[1], reverse=True)
-
-    for ph, pw in sorted_pieces:
-        orientations = [(ph, pw), (pw, ph)]
-        placed = False
-
-        for h, w in orientations:
-            for slab in bins:
-                x, y = slab["x_cursor"], slab["y_cursor"]
-                row_h = slab["row_height"]
-
-                if x + w <= slab_w and y + h <= slab_h:
-                    slab["rects"].append((x, y, w, h))
-                    slab["x_cursor"] += w
-                    slab["row_height"] = max(row_h, h)
-                    placed = True
-                    break
-
-                elif y + row_h + h <= slab_h and w <= slab_w:
-                    slab["x_cursor"] = w
-                    slab["y_cursor"] += row_h
-                    slab["row_height"] = h
-                    slab["rects"].append((0, slab["y_cursor"], w, h))
-                    placed = True
-                    break
-            if placed:
-                break
-
-        if not placed:
-            for h, w in orientations:
-                if w <= slab_w and h <= slab_h:
-                    bins.append({
-                        "x_cursor": w,
-                        "y_cursor": 0,
-                        "row_height": h,
-                        "rects": [(0, 0, w, h)]
-                    })
-                    break
-
-    return [slab["rects"] for slab in bins]
-
-# --- Optimization Logic ---
-def find_best_mixed_slabs(pieces: List[Tuple[float, float]]):
-    def evaluate_assignment(combo):
-        assigned: Dict[int, List[Tuple[float, float]]] = {}
-        for i, slab_h in enumerate(combo):
-            assigned.setdefault(slab_h, []).append(pieces[i])
-
-        layout, waste, slab_count, records = [], 0, 0, []
-
-        for h, group in assigned.items():
-            if not group:
-                continue
-            packed = best_fit_pack(group, SLAB_FIXED_LENGTH, h)
-            used = sum(w * h for slab in packed for _, _, w, h in slab)
-            total = len(packed) * SLAB_FIXED_LENGTH * h
-            layout.extend([(slab, SLAB_FIXED_LENGTH, h) for slab in packed])
-            records.extend([(SLAB_FIXED_LENGTH, h)] * len(packed))
-            waste += total - used
-            slab_count += len(packed)
-
-        return slab_count, waste, layout, records
-
-    best_result = None
-    min_slabs, min_waste = float('inf'), float('inf')
-    valid_heights = [h for h in QUARTZ_SLAB_SIZES if any(p[0] <= h for p in pieces)]
-
-    # Try uniform slabs
-    for h in valid_heights:
-        if all(p[0] <= h for p in pieces):
-            combo = [h] * len(pieces)
-            slab_count, waste, layout, records = evaluate_assignment(combo)
-            if (
-                slab_count < min_slabs or
-                (slab_count == min_slabs and (
-                    waste < min_waste or
-                    (waste == min_waste and (
-                        best_result is None or sorted(records) < sorted(best_result["slab_records"])
-                    ))
-                ))
-            ):
-                best_result = {
-                    "layout": layout,
-                    "waste": waste,
-                    "slab_count": slab_count,
-                    "slab_records": records
-                }
-                min_slabs, min_waste = slab_count, waste
-
-    # Try mixed slabs
-    all_assignments = islice(product(valid_heights, repeat=len(pieces)), 100000)
-    for combo in all_assignments:
-        slab_count, waste, layout, records = evaluate_assignment(combo)
-        if (
-            slab_count < min_slabs or
-            (slab_count == min_slabs and (
-                waste < min_waste or
-                (waste == min_waste and (
-                    sorted(records) < sorted(best_result["slab_records"]) or
-                    (sorted(records) == sorted(best_result["slab_records"]) and
-                     sum(h for _, h in records) / len(records) < sum(h for _, h in best_result["slab_records"]) / len(best_result["slab_records"]))
-                ))
-            ))
-        ):
-            best_result = {
-                "layout": layout,
-                "waste": waste,
-                "slab_count": slab_count,
-                "slab_records": records
+slab_mode = st.sidebar.radio("Slab Type", ["Quartz", "Granite"])
+dark_mode = st.sidebar.checkbox("🌙 Dark Mode", value=False)
+if dark_mode:
+    st.markdown("""
+        <style>
+            html, body, [class*="css"]  {
+                background-color: #0e1117;
+                color: #fafafa;
             }
-            min_slabs, min_waste = slab_count, waste
+            .stButton>button {
+                background-color: #262730;
+                color: white;
+            }
+        </style>
+    """, unsafe_allow_html=True)
 
-    return best_result if best_result else {"layout": [], "waste": 0, "slab_count": 0, "slab_records": []}
+mode = slab_mode
+st.caption(f"Mode: {mode}")
 
-# --- Run Button ---
-if st.button("Run Slabbing"):
-    pieces = parse_input(input_text)
-    result = find_best_mixed_slabs(pieces)
+st.caption("Enter your required pieces and slab sizes in centimeters. The app will automatically optimize for minimum waste.")
 
-    st.subheader(f"Recommended Layout: {result['slab_count']} slab(s)")
-    st.write(f"Estimated Waste Area: {result['waste'] / 10000:.2f} m²")
+# ──────────────────────────────────────────────────
+# 1. Required Pieces Input
+# ──────────────────────────────────────────────────
+with st.expander("📌 Required Pieces", expanded=True):
+default_input = "65,253\n64,227\n64,73\n73,227\n73,314\n73,73\n8,166\n8,253\n16,83\n15,82"
+user_input = st.text_area("✏️ One piece per line. Format: width,length (in cm)", value=default_input, height=150, label_visibility="visible")
 
-    # --- Visualization ---
-    cols = st.columns(min(3, len(result['layout'])))
-    for idx, (slab, w, h) in enumerate(result['layout']):
-        with cols[idx % len(cols)]:
-            fig, ax = plt.subplots(figsize=(6, h / 60))
-            ax.set_xlim(0, w)
-            ax.set_ylim(0, h)
-            for x, y, pw, ph in slab:
-                rect = patches.Rectangle((x, y), pw, ph, linewidth=1, edgecolor='black', facecolor='skyblue')
-                ax.add_patch(rect)
-                ax.text(x + pw / 2, y + ph / 2, f"{int(ph)}x{int(pw)}", ha='center', va='center', fontsize=8)
-            ax.set_xticks([])
-            ax.set_yticks([])
-            ax.set_title(f"{int(h)} x {int(w)} cm")
+pieces = []
+for line in user_input.strip().splitlines():
+    try:
+        parts = line.replace('\t', ' ').replace(',', ' ').split()
+        w, l = map(float, parts[:2])
+        pieces.append((w, l))
+    except:
+        st.error(f"❌ Invalid format in: {line}")
+
+if pieces:
+    total_area_cm2 = sum(w * l for w, l in pieces)
+    st.info(f"📀 Total required area: {total_area_cm2 / 10000:.2f} m²")
+
+# ──────────────────────────────────────────────────
+# 2. Slab Sizes Input
+# ──────────────────────────────────────────────────
+with st.expander("🪵 Available Slab Sizes", expanded=True):
+default_slabs = "60,320\n70,320\n80,320\n90,320\n100,320\n160,320"
+slab_input = st.text_area("📐 Slab sizes (one per line, in cm)", value=default_slabs, height=120)
+
+slab_sizes = []
+for line in slab_input.strip().splitlines():
+    try:
+        parts = line.replace('\t', ' ').replace(',', ' ').split()
+        w, l = map(float, parts[:2])
+        if any(pw > w or pl > l for pw, pl in pieces):
+            continue  # Skip slabs that cannot fit at least one piece
+        slab_sizes.append((w, l))
+    except:
+        st.error(f"❌ Invalid format in: {line}")
+
+# ──────────────────────────────────────────────────
+# Optimization and Layout Drawing
+# ──────────────────────────────────────────────────
+best_result = None
+best_packer = None
+min_waste = float('inf')
+
+st.markdown("<div style='text-align:center;padding:1rem;'>", unsafe_allow_html=True)
+with st.spinner("⏳ Optimizing layout..."):
+        if st.button("🚀 Run Slab Optimization", type='primary'):
+    st.markdown("</div>", unsafe_allow_html=True)
+    for num_slabs in range(1, 4):  # Try combinations with 1 to 3 slabs
+        for slab_combo in combinations_with_replacement(slab_sizes, num_slabs):
+            packer = newPacker(rotation=False)
+            for i, (w, h) in enumerate(pieces):
+                packer.add_rect(w, h, rid=i)
+            for w, h in slab_combo:
+                packer.add_bin(w, h)
+            packer.pack()
+
+            if len(packer.rect_list()) < len(pieces):
+                continue  # not all pieces fit
+
+            total_piece_area = sum(w * h for w, h in pieces)
+            total_slab_area = sum(w * h for w, h in slab_combo)
+            waste = total_slab_area - total_piece_area
+
+            if waste < min_waste:
+                min_waste = waste
+                best_result = {
+                    "combo": slab_combo,
+                    "waste": waste / 10000,
+                    "slab_area": total_slab_area
+                }
+                best_packer = packer
+
+    if best_result:
+        st.success("✅ Optimization Successful!")
+        st.markdown(f"**Estimated total waste:** `{best_result['waste']:.2f} m²`")
+
+        # Slab Layout Visualizations
+        st.markdown("<h4 style='margin-top:1.5rem;margin-bottom:0.5rem;'>📐 Optimized Slab Layouts</h4>", unsafe_allow_html=True)
+        bins_rects = defaultdict(list)
+        for rect in best_packer.rect_list():
+            bin_index, x, y, w, h, rid = rect
+            bins_rects[bin_index].append((x, y, w, h, rid))
+
+        for bin_index, rects in bins_rects.items():
+            sw, sh = best_result["combo"][bin_index]
+            fig, ax = plt.subplots(figsize=(8, 5))
+            ax.add_patch(patches.Rectangle((0, 0), sw, sh, edgecolor='black', facecolor='none', lw=2))
+
+            for (x, y, w, h, rid) in rects:
+                color = [random.random() for _ in range(3)]
+                ax.add_patch(patches.Rectangle((x, y), w, h, facecolor=color, edgecolor='black', lw=1, alpha=0.6))
+                label = f"{int(round(h, -1))}×{int(round(w, -1))}"
+                ax.text(x + w / 2, y + h / 2, label, ha='center', va='center', fontsize=8, color='black')
+
+            ax.set_xlim(0, sw)
+            ax.set_ylim(0, sh)
+            ax.set_aspect('equal')
+            ax.axis('off')
+            plt.gca().invert_yaxis()
             st.pyplot(fig)
+    else:
+        st.error("❌ No valid slab combination found.")
+
 
 
 
