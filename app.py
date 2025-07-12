@@ -128,6 +128,10 @@ def find_best_mixed_slabs(pieces: List[Tuple[float, float]]):
                     )
                 )
             )
+        )
+                    )
+                )
+            )
                 )
             )
         ):
@@ -164,6 +168,7 @@ if st.button("Run Slabbing"):
             ax.set_yticks([])
             ax.set_title(f"{int(h)} x {int(w)} cm")
             st.pyplot(fig)
+
 
 
 
