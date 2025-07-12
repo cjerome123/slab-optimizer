@@ -1,10 +1,9 @@
-# Quartz Slab Optimizer - Advanced Bin-Packing Optimization
+# Quartz Slab Optimizer - Mixed Slab Bin-Packing Optimization
 
 import streamlit as st
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
-from typing import List, Tuple
-import itertools
+from typing import List, Tuple, Dict
 
 QUARTZ_SLAB_SIZES = [60, 70, 80, 90, 100, 160]  # in cm
 SLAB_FIXED_LENGTH = 320  # in cm
@@ -24,16 +23,19 @@ def parse_input(text: str) -> List[Tuple[float, float]]:
             continue
     return pieces
 
-input_text = st.text_area("Dimensions:", value="""0.65 2.53
-0.64 2.27
-0.64 0.73
-0.73 2.27
-0.73 3.14
-0.73 0.73
-0.08 1.66
-0.08 2.53
-0.16 0.83
-0.15 0.82""", height=200)
+input_text = st.text_area("Dimensions:", value="""0.63 3.01
+0.13 0.63
+0.13 3.01
+0.13 0.63
+0.33 2.43
+
+0.81 2.76
+0.13 2.76
+0.13 2.76
+0.13 0.81
+0.81 1.03
+0.13 1.03
+0.13 1.03""", height=200)
 
 # --- Bin Packing with Best Fit ---
 def best_fit_pack(pieces: List[Tuple[float, float]], slab_width: float, slab_height: float):
@@ -72,27 +74,41 @@ def best_fit_pack(pieces: List[Tuple[float, float]], slab_width: float, slab_hei
             })
     return [slab["rects"] for slab in bins]
 
-# --- Optimization over All Slab Sizes ---
-def find_best_slab(pieces: List[Tuple[float, float]]):
-    best_result = None
-    max_piece_height = max(h for h, w in pieces)
-    for slab_h in QUARTZ_SLAB_SIZES:
-        if slab_h < max_piece_height:
+# --- Mixed Slab Optimization ---
+def find_best_mixed_slabs(pieces: List[Tuple[float, float]]):
+    grouped: Dict[int, List[Tuple[float, float]]] = {h: [] for h in QUARTZ_SLAB_SIZES}
+    for h, w in pieces:
+        for slab_h in sorted(QUARTZ_SLAB_SIZES):
+            if h <= slab_h:
+                grouped[slab_h].append((h, w))
+                break
+
+    result_layouts = []
+    total_waste = 0
+    total_slabs = 0
+    slab_records = []
+
+    for slab_h, group in grouped.items():
+        if not group:
             continue
-        layout = best_fit_pack(pieces.copy(), slab_width=SLAB_FIXED_LENGTH, slab_height=slab_h)
-        if not layout:
-            continue  # Skip if nothing could be packed in this slab size
+        layout = best_fit_pack(group, slab_width=SLAB_FIXED_LENGTH, slab_height=slab_h)
         used_area = sum(w * h for slab in layout for _, _, w, h in slab)
         total_area = len(layout) * SLAB_FIXED_LENGTH * slab_h
         waste = total_area - used_area
-        if not best_result or waste < best_result['waste']:
-            best_result = {
-                "layout": layout,
-                "slab_size": (SLAB_FIXED_LENGTH, slab_h),
-                "slab_count": len(layout),
-                "waste": waste
-            }
-    return best_result
+
+        total_slabs += len(layout)
+        total_waste += waste
+
+        for slab in layout:
+            result_layouts.append((slab, SLAB_FIXED_LENGTH, slab_h))
+            slab_records.append((SLAB_FIXED_LENGTH, slab_h))
+
+    return {
+        "layout": result_layouts,
+        "waste": total_waste,
+        "slab_count": total_slabs,
+        "slab_records": slab_records
+    }
 
 # --- Run ---
 if st.button("Run Slabbing"):
@@ -101,18 +117,21 @@ if st.button("Run Slabbing"):
         st.error("Invalid input.")
         st.stop()
 
-    result = find_best_slab(pieces)
-    if result is None:
+    result = find_best_mixed_slabs(pieces)
+    if not result or not result["layout"]:
         st.error("No slab size could accommodate your pieces.")
         st.stop()
-
-    slab_w, slab_h = result['slab_size']
-    smaller, larger = sorted([slab_w, slab_h])
 
     st.subheader("Results")
     st.write(f"Total Slabs: {result['slab_count']}")
     st.write(f"Waste: {result['waste']/10000:.2f} m²")
-    st.write(f"Recommended Slab Size: {int(smaller)} x {int(larger)} cm")
+
+    # Count unique slab sizes used
+    from collections import Counter
+    slab_summary = Counter((min(w, h), max(w, h)) for w, h in result["slab_records"])
+    st.write("Used Slab Sizes:")
+    for (sh, sw), count in slab_summary.items():
+        st.write(f"- {sh} x {sw} cm: {count} slab(s)")
 
     # --- Visualization ---
     def visualize_slab(slab_data, slab_w, slab_h):
@@ -127,8 +146,9 @@ if st.button("Run Slabbing"):
             ax.text(x + w / 2, y + h / 2, f"{int(w)}×{int(h)}", ha='center', va='center', fontsize=8)
         st.pyplot(fig)
 
-    for slab in result['layout']:
+    for slab, slab_w, slab_h in result['layout']:
         visualize_slab(slab, slab_w, slab_h)
+
 
 
 
