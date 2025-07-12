@@ -100,15 +100,10 @@ def best_fit_pack(pieces: List[Tuple[float, float]], slab_width: float, slab_hei
 
 # --- Mixed Slab Optimization ---
 def find_best_mixed_slabs(pieces: List[Tuple[float, float]]):
-    from itertools import product, combinations
-
-    best_result = None
-    min_slabs = float('inf')
-    min_waste = float('inf')
+    from itertools import product, combinations, islice
 
     valid_slab_heights = [h for h in QUARTZ_SLAB_SIZES if all(p[0] <= h for p in pieces)]
-    from itertools import islice
-all_assignments = islice(product(valid_slab_heights, repeat=len(pieces)), 50000)
+    all_assignments = islice(product(valid_slab_heights, repeat=len(pieces)), 50000)
 
     for i, combo in enumerate(all_assignments):
         if i > 10000:
@@ -186,5 +181,6 @@ if st.button("Run Slabbing"):
 
     for slab, slab_w, slab_h in result['layout']:
         visualize_slab(slab, slab_w, slab_h)
+
 
 
