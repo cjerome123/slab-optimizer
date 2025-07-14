@@ -70,7 +70,7 @@ def draw_slab_layout(slab: Tuple[float, float], layout: List[Tuple[Tuple[float, 
     ax.set_title(f'Nesting Layout: {int(sw)} x {int(sh)} cm')
     st.pyplot(fig)
 
-st.title("📦 Slab Nesting Optimizer (Landscape Layout)")
+st.title("Slabbing")
 
 req_input = st.text_area("Enter required slab sizes (in meters, one per line: width height)", "0.73 2.28\n0.73 3.14\n0.15 0.82")
 slab_input = st.text_area("Enter available slab sizes (in cm, one per line: width height)", "90 320\n90 320\n90 320")
@@ -90,7 +90,7 @@ if st.button("Nest Slabs"):
         results, leftovers = nest_pieces(required, available)
 
         for slab, layout in results:
-            st.subheader(f"🪵 Slab: {int(slab[0])} x {int(slab[1])} cm")
+            st.subheader(f"Slab: {int(slab[0])} x {int(slab[1])} cm")
             draw_slab_layout(slab, layout)
 
         if leftovers:
