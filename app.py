@@ -182,8 +182,7 @@ if st.button("📐 Nest Slabs"):
 
         st.markdown("---")
         st.subheader("🧩 Slab Layouts")
-        visible_count = st.slider("Number of slabs to display", 1, len(results), min(5, len(results))) if results else 0
-        for slab, layout in results[:visible_count]:
+        for slab, layout in results:
             st.markdown(f"**Slab:** {int(slab[0])} x {int(slab[1])} cm")
             draw_slab_layout(slab, layout)
             total_used_area += slab[0] * slab[1]
