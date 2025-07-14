@@ -13,55 +13,67 @@ def can_fit_any_rotation(piece: Tuple[float, float], space: Tuple[float, float])
     return False, (0, 0)
 
 
-def nest_pieces(required_pieces: List[Tuple[float, float]], available_slabs: List[Tuple[float, float]]):
+def guillotine_split(free_spaces: List[Tuple[float, float, float, float]],
+                     pw: float, ph: float) -> Tuple[Tuple[float, float], List[Tuple[float, float, float, float]]]:
+    for i, (fx, fy, fw, fh) in enumerate(free_spaces):
+        fits, orientation = can_fit_any_rotation((pw, ph), (fw, fh))
+        if fits:
+            ow, oh = orientation
+            px, py = fx, fy
+            new_spaces = []
+            # Split horizontally and vertically like guillotine
+            new_spaces.append((fx + ow, fy, fw - ow, oh))  # right piece
+            new_spaces.append((fx, fy + oh, fw, fh - oh))  # bottom piece
+            # Remove used space and add new pieces
+            free_spaces.pop(i)
+            for s in new_spaces:
+                if s[2] > 0 and s[3] > 0:
+                    free_spaces.append(s)
+            return (px, py), orientation
+    return None, None
+
+
+def sort_pieces(pieces: List[Tuple[float, float]]) -> List[Tuple[float, float]]:
+    return sorted(pieces, key=lambda x: x[0] * x[1], reverse=True)
+
+
+def nest_pieces_guillotine(required_pieces: List[Tuple[float, float]], available_slabs: List[Tuple[float, float]]):
     results = []
     used_slabs = []
-    available_pool = available_slabs.copy()
+    pieces = sort_pieces(required_pieces)
 
-    while required_pieces and available_pool:
-        slab = available_pool.pop(0)
-        slab_w, slab_h = slab
-        if slab_h > slab_w:
-            slab_w, slab_h = slab_h, slab_w
+    for slab in available_slabs:
+        sw, sh = slab
+        if sh > sw:
+            sw, sh = sh, sw
 
         layout = []
-        occupied = []
+        free_spaces = [(0, 0, sw, sh)]
         still_needed = []
 
-        for piece in required_pieces:
-            placed = False
-            for y in range(0, int(slab_h)):
-                for x in range(0, int(slab_w)):
-                    fits, orientation = can_fit_any_rotation(piece, (slab_w - x, slab_h - y))
-                    if fits:
-                        pw, ph = orientation
-                        overlap = False
-                        for (ox, oy), (ow, oh) in layout:
-                            if not (x + pw <= ox or x >= ox + ow or y + ph <= oy or y >= oy + oh):
-                                overlap = True
-                                break
-                        if not overlap:
-                            layout.append(((x, y), (pw, ph)))
-                            placed = True
-                            break
-                if placed:
-                    break
-            if not placed:
+        for piece in pieces:
+            pos, dim = guillotine_split(free_spaces, piece[0], piece[1])
+            if pos:
+                layout.append((pos, dim))
+            else:
                 still_needed.append(piece)
 
         if layout:
-            results.append(((slab_w, slab_h), layout))
-            used_slabs.append((slab_w, slab_h))
-        required_pieces = still_needed
+            results.append(((sw, sh), layout))
+            used_slabs.append((sw, sh))
+        pieces = still_needed
 
-    return results, required_pieces, used_slabs
+        if not pieces:
+            break
+
+    return results, pieces, used_slabs
 
 
 def draw_slab_layout(slab: Tuple[float, float], layout: List[Tuple[Tuple[float, float], Tuple[float, float]]]):
     fig, ax = plt.subplots(figsize=(10, 4))
     sw, sh = slab
     ax.add_patch(patches.Rectangle((0, 0), sw, sh, edgecolor='black', facecolor='lightgray'))
-    for i, ((x, y), (w, h)) in enumerate(layout):
+    for ((x, y), (w, h)) in layout:
         ax.add_patch(patches.Rectangle((x, y), w, h, edgecolor='blue', facecolor='skyblue'))
         ax.text(x + w / 2, y + h / 2, f'{int(w)}x{int(h)}', ha='center', va='center', fontsize=8)
     ax.set_xlim(0, sw)
@@ -73,7 +85,7 @@ def draw_slab_layout(slab: Tuple[float, float], layout: List[Tuple[Tuple[float, 
     st.pyplot(fig)
 
 
-st.title("📦 Slab Nesting Optimizer (2x 160x320cm Fit Test)")
+st.title("📦 Slab Nesting Optimizer (Guillotine Packing)")
 
 req_input = st.text_area("Enter required slab sizes (in meters, one per line: width height)",
                          "0.65 2.53\n0.64 2.28\n0.64 0.73\n0.73 2.28\n0.73 3.14\n0.73 0.73\n0.08 1.67\n0.08 2.53\n0.16 0.83\n0.15 0.82")
@@ -91,7 +103,7 @@ if st.button("Nest Slabs"):
             w, h = map(float, line.strip().split())
             available.append((w, h))
 
-        results, leftovers, used_slabs = nest_pieces(required, available)
+        results, leftovers, used_slabs = nest_pieces_guillotine(required, available)
 
         total_used_area = 0
         total_piece_area = 0
@@ -118,6 +130,7 @@ if st.button("Nest Slabs"):
                 st.text(f"{pw / 100:.2f} x {ph / 100:.2f} m")
     except Exception as e:
         st.error(f"Error: {str(e)}")
+
 
 
 
