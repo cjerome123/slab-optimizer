@@ -102,8 +102,10 @@ def draw_slab_layout(slab: Tuple[float, float], layout: List[Tuple[str, Tuple[fl
     sw, sh = slab
     ax.add_patch(patches.Rectangle((0, 0), sw, sh, edgecolor='black', facecolor='#f0f0f0'))
     for idx, (label, (x, y), (w, h)) in enumerate(layout):
+        label = label.strip()
+        label_text = f"{int(min(w,h))}x{int(max(w,h))}" if label == "" else f"{label}\n{int(min(w,h))}x{int(max(w,h))}"
         ax.add_patch(patches.Rectangle((x, y), w, h, edgecolor='navy', facecolor='#a2d2ff'))
-        ax.text(x + w / 2, y + h / 2, f'{label}\n{int(min(w,h))}x{int(max(w,h))}',
+        ax.text(x + w / 2, y + h / 2, label_text,
                 ha='center', va='center', fontsize=8, color='black')
     ax.set_xlim(0, sw)
     ax.set_ylim(0, sh)
@@ -147,7 +149,12 @@ if st.button("📐 Nest Slabs"):
         required = []
         for line in req_input.strip().splitlines():
             parts = line.strip().split()
-            name, w, h = parts[0], float(parts[1]), float(parts[2])
+            if len(parts) == 3:
+                name, w, h = parts[0], float(parts[1]), float(parts[2])
+            elif len(parts) == 2:
+                name, w, h = "", float(parts[0]), float(parts[1])
+            else:
+                continue
             required.append((name, w * 100, h * 100))
 
         available = []
@@ -181,7 +188,8 @@ if st.button("📐 Nest Slabs"):
 
         if leftovers:
             st.warning("⚠️ These pieces did not fit in any slab:")
-            st.code("\n".join([f"{name}: {pw / 100:.2f} x {ph / 100:.2f} m" for name, pw, ph in leftovers]), language="text")
+            st.code("\n".join([f"{name if name else 'Unnamed'}: {pw / 100:.2f} x {ph / 100:.2f} m" for name, pw, ph in leftovers]), language="text")
     except Exception as e:
         st.error(f"❌ Error: {str(e)}")
+
 
