@@ -13,8 +13,8 @@ st.set_page_config(layout="wide")
 # Light mode only settings
 primary_bg = "#ffffff"
 font_color = "#000000"
-slab_color = "#fff5f5"
-piece_color = "#fffff5"
+slab_color = "#e28a8b"
+piece_color = "#a09c81"
 input_bg = "#f9f9f9"
 
 st.markdown(f"""
