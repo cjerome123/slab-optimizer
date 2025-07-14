@@ -131,15 +131,15 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-st.title("📦 Slab Nesting Optimizer (Guillotine Packing)")
+st.title("SLABBING")
 
 with st.sidebar:
-    smart_combo = st.checkbox("🔀 Enable Smart Combo (optimize slab selection)", value=True)
+    smart_combo = st.checkbox("🔀 Enable Smart Combo", value=True)
 
 with st.expander("📥 Input Dimensions", expanded=True):
     col1, col2 = st.columns(2)
     with col1:
-        req_input = st.text_area("Required pieces (name + size in meters)",
+        req_input = st.text_area("Required pieces (in m)",
                                  "Backsplash 0.65 2.53\nCounter 0.64 2.28\nSide 0.64 0.73\nIsland 0.73 2.28\nIsland 0.73 3.14\nSide 0.73 0.73\nTrim 0.08 1.67\nTrim 0.08 2.53\nAccent 0.16 0.83\nAccent 0.15 0.82")
     with col2:
         slab_input = st.text_area("Available slabs (in cm)", "160 320\n160 320")
