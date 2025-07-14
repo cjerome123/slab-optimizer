@@ -59,13 +59,13 @@ def draw_slab_layout(slab: Tuple[float, float], layout: List[Tuple[Tuple[float, 
     ax.add_patch(patches.Rectangle((0, 0), sw, sh, edgecolor='black', facecolor='lightgray'))
     for i, ((x, y), (w, h)) in enumerate(layout):
         ax.add_patch(patches.Rectangle((x, y), w, h, edgecolor='blue', facecolor='skyblue'))
-        ax.text(x + w/2, y + h/2, f'{i+1}', ha='center', va='center', fontsize=8)
+        ax.text(x + w/2, y + h/2, f'{int(w)}x{int(h)}', ha='center', va='center', fontsize=8)
     ax.set_xlim(0, sw)
     ax.set_ylim(0, sh)
     ax.set_aspect('auto')
     ax.set_xlabel('Width (longer side)')
     ax.set_ylabel('Height (shorter side)')
-    ax.set_title('Nesting Layout (Landscape)')
+    ax.set_title(f'Nesting Layout: {int(sw)} x {int(sh)} cm')
     st.pyplot(fig)
 
 st.title("📦 Slab Nesting Optimizer (Landscape Layout)")
@@ -87,8 +87,8 @@ if st.button("Nest Slabs"):
 
         results, leftovers = nest_pieces(required, available)
 
-        for i, (slab, layout) in enumerate(results):
-            st.subheader(f"🪵 Slab {i+1}: {slab[0]} x {slab[1]} cm")
+        for slab, layout in results:
+            st.subheader(f"🪵 Slab: {int(slab[0])} x {int(slab[1])} cm")
             draw_slab_layout(slab, layout)
 
         if leftovers:
@@ -97,6 +97,7 @@ if st.button("Nest Slabs"):
                 st.text(f"{pw/100:.2f} x {ph/100:.2f} m")
     except Exception as e:
         st.error(f"Error: {str(e)}")
+
 
 
 
