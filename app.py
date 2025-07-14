@@ -136,7 +136,6 @@ def draw_slab_layout(slab: Tuple[float, float], layout: List[Tuple[str, Tuple[fl
         label = label.strip()
         label_text = f"{int(min(w,h))}x{int(max(w,h))}" if label == "" else f"{label}
 {int(min(w,h))}x{int(max(w,h))}"
-{int(min(w,h))}x{int(max(w,h))}"
         ax.add_patch(patches.Rectangle((x, y), w, h, edgecolor='navy', facecolor=piece_color))
         ax.text(x + w / 2, y + h / 2, label_text,
                 ha='center', va='center', fontsize=8, color='black')
@@ -229,4 +228,3 @@ if st.button("📐 Nest Slabs"):
             st.code("\n".join([f"{name if name else 'Unnamed'}: {pw / 100:.2f} x {ph / 100:.2f} m" for name, pw, ph in leftovers]), language="text")
     except Exception as e:
         st.error(f"❌ Error: {str(e)}")
-
