@@ -3,14 +3,15 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 from typing import List, Tuple
 
-def can_fit_any_rotation(piece: Tuple[float, float], slab: Tuple[float, float]) -> Tuple[bool, Tuple[float, float]]:
+
+def can_fit_any_rotation(piece: Tuple[float, float], space: Tuple[float, float]) -> Tuple[bool, Tuple[float, float]]:
     pw, ph = piece
-    sw, sh = slab
-    orientations = [(pw, ph), (ph, pw)]
-    for ow, oh in orientations:
-        if sw >= ow and sh >= oh:
-            return True, (ow, oh)
+    sw, sh = space
+    for orientation in [(pw, ph), (ph, pw)]:
+        if orientation[0] <= sw and orientation[1] <= sh:
+            return True, orientation
     return False, (0, 0)
+
 
 def nest_pieces(required_pieces: List[Tuple[float, float]], available_slabs: List[Tuple[float, float]]):
     results = []
@@ -24,29 +25,28 @@ def nest_pieces(required_pieces: List[Tuple[float, float]], available_slabs: Lis
             slab_w, slab_h = slab_h, slab_w
 
         layout = []
-        x_cursor = 0
-        y_cursor = 0
-        row_height = 0
+        occupied = []
         still_needed = []
 
         for piece in required_pieces:
-            fits, orientation = can_fit_any_rotation(piece, (slab_w, slab_h))
-            if not fits:
-                still_needed.append(piece)
-                continue
-
-            pw, ph = orientation
-            if x_cursor + pw <= slab_w and y_cursor + ph <= slab_h:
-                layout.append(((x_cursor, y_cursor), (pw, ph)))
-                x_cursor += pw
-                row_height = max(row_height, ph)
-            elif y_cursor + row_height + ph <= slab_h:
-                x_cursor = 0
-                y_cursor += row_height
-                row_height = ph
-                layout.append(((x_cursor, y_cursor), (pw, ph)))
-                x_cursor += pw
-            else:
+            placed = False
+            for y in range(0, int(slab_h)):
+                for x in range(0, int(slab_w)):
+                    fits, orientation = can_fit_any_rotation(piece, (slab_w - x, slab_h - y))
+                    if fits:
+                        pw, ph = orientation
+                        overlap = False
+                        for (ox, oy), (ow, oh) in layout:
+                            if not (x + pw <= ox or x >= ox + ow or y + ph <= oy or y >= oy + oh):
+                                overlap = True
+                                break
+                        if not overlap:
+                            layout.append(((x, y), (pw, ph)))
+                            placed = True
+                            break
+                if placed:
+                    break
+            if not placed:
                 still_needed.append(piece)
 
         if layout:
@@ -56,13 +56,14 @@ def nest_pieces(required_pieces: List[Tuple[float, float]], available_slabs: Lis
 
     return results, required_pieces, used_slabs
 
+
 def draw_slab_layout(slab: Tuple[float, float], layout: List[Tuple[Tuple[float, float], Tuple[float, float]]]):
     fig, ax = plt.subplots(figsize=(10, 4))
     sw, sh = slab
     ax.add_patch(patches.Rectangle((0, 0), sw, sh, edgecolor='black', facecolor='lightgray'))
     for i, ((x, y), (w, h)) in enumerate(layout):
         ax.add_patch(patches.Rectangle((x, y), w, h, edgecolor='blue', facecolor='skyblue'))
-        ax.text(x + w/2, y + h/2, f'{int(w)}x{int(h)}', ha='center', va='center', fontsize=8)
+        ax.text(x + w / 2, y + h / 2, f'{int(w)}x{int(h)}', ha='center', va='center', fontsize=8)
     ax.set_xlim(0, sw)
     ax.set_ylim(0, sh)
     ax.set_aspect('auto')
@@ -71,9 +72,11 @@ def draw_slab_layout(slab: Tuple[float, float], layout: List[Tuple[Tuple[float, 
     ax.set_title(f'Nesting Layout: {int(sw)} x {int(sh)} cm')
     st.pyplot(fig)
 
-st.title("📦 Slab Nesting Optimizer (Landscape Layout)")
 
-req_input = st.text_area("Enter required slab sizes (in meters, one per line: width height)", "0.73 2.28\n0.73 3.14\n0.15 0.82")
+st.title("📦 Slab Nesting Optimizer (2x 160x320cm Fit Test)")
+
+req_input = st.text_area("Enter required slab sizes (in meters, one per line: width height)",
+                         "0.65 2.53\n0.64 2.28\n0.64 0.73\n0.73 2.28\n0.73 3.14\n0.73 0.73\n0.08 1.67\n0.08 2.53\n0.16 0.83\n0.15 0.82")
 slab_input = st.text_area("Enter available slab sizes (in cm, one per line: width height)", "160 320\n160 320")
 
 if st.button("Nest Slabs"):
@@ -115,5 +118,6 @@ if st.button("Nest Slabs"):
                 st.text(f"{pw / 100:.2f} x {ph / 100:.2f} m")
     except Exception as e:
         st.error(f"Error: {str(e)}")
+
 
 
