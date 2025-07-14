@@ -1,18 +1,56 @@
-# ✅ IMPLEMENTATION OF UI IMPROVEMENTS 1, 3, 4, 5 (FIXED: Missing Logic)
-# ======================================================
-# This version includes:
-# - Guillotine logic functions (previously stripped)
-# - UI improvements (expander, sidebar toggle, metrics, layout visualization)
-# - Enhanced visuals: cleaner layout, better font, updated label formatting
-# - Optional: Custom names for pieces
-# - Custom piece and slab colors (#fffff5 for piece, #fff5f5 for slab)
-
 import streamlit as st
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 from typing import List, Tuple
 import itertools
 
+# -----------------------------
+# Theme Color Configuration
+# -----------------------------
+
+st.set_page_config(layout="wide")
+
+with st.sidebar:
+    dark_mode = st.toggle("🌙 Dark Mode", value=False)
+
+# Theme settings
+if dark_mode:
+    primary_bg = "#1c1c1c"
+    font_color = "#ffffff"
+    slab_color = "#2c2c2c"
+    piece_color = "#3c3c3c"
+    input_bg = "#333333"
+else:
+    primary_bg = "#ffffff"
+    font_color = "#000000"
+    slab_color = "#fff5f5"
+    piece_color = "#fffff5"
+    input_bg = "#f9f9f9"
+
+st.markdown(f"""
+<style>
+    body {{
+        background-color: {primary_bg};
+        color: {font_color};
+    }}
+    .stTextArea textarea {{
+        background-color: {input_bg};
+        color: {font_color};
+        caret-color: {font_color};
+        font-family: monospace;
+    }}
+    .stButton>button {{
+        background-color: #007bff;
+        color: white;
+        font-weight: bold;
+        border-radius: 8px;
+    }}
+</style>
+""", unsafe_allow_html=True)
+
+st.title("📦 Slab Nesting Optimizer (Guillotine Packing)")
+
+# Core logic functions remain unchanged
 
 def can_fit_any_rotation(piece: Tuple[float, float], space: Tuple[float, float]) -> Tuple[bool, Tuple[float, float]]:
     pw, ph = piece
@@ -101,11 +139,11 @@ def nest_pieces_guillotine(required_pieces: List[Tuple[str, float, float]], avai
 def draw_slab_layout(slab: Tuple[float, float], layout: List[Tuple[str, Tuple[float, float], Tuple[float, float]]]):
     fig, ax = plt.subplots(figsize=(12, 5))
     sw, sh = slab
-    ax.add_patch(patches.Rectangle((0, 0), sw, sh, edgecolor='black', facecolor='#fff5f5'))
+    ax.add_patch(patches.Rectangle((0, 0), sw, sh, edgecolor='black', facecolor=slab_color))
     for idx, (label, (x, y), (w, h)) in enumerate(layout):
         label = label.strip()
         label_text = f"{int(min(w,h))}x{int(max(w,h))}" if label == "" else f"{label}\n{int(min(w,h))}x{int(max(w,h))}"
-        ax.add_patch(patches.Rectangle((x, y), w, h, edgecolor='navy', facecolor='#fffff5'))
+        ax.add_patch(patches.Rectangle((x, y), w, h, edgecolor='navy', facecolor=piece_color))
         ax.text(x + w / 2, y + h / 2, label_text,
                 ha='center', va='center', fontsize=8, color='black')
     ax.set_xlim(0, sw)
@@ -114,27 +152,7 @@ def draw_slab_layout(slab: Tuple[float, float], layout: List[Tuple[str, Tuple[fl
     ax.axis('off')
     st.pyplot(fig)
 
-
-st.set_page_config(layout="wide")
-st.markdown("""
-<style>
-    .stTextArea textarea {
-        font-family: monospace;
-        background-color: #f9f9f9;
-        color: black;
-        caret-color: black;
-    }
-    .stButton>button {
-        background-color: #007bff;
-        color: white;
-        font-weight: bold;
-        border-radius: 8px;
-    }
-</style>
-""", unsafe_allow_html=True)
-
-st.title("📦 Slab Nesting Optimizer (Guillotine Packing)")
-
+# --- INPUTS ---
 with st.sidebar:
     smart_combo = st.checkbox("🔀 Enable Smart Combo (optimize slab selection)", value=True)
 
@@ -193,3 +211,4 @@ if st.button("📐 Nest Slabs"):
             st.code("\n".join([f"{name if name else 'Unnamed'}: {pw / 100:.2f} x {ph / 100:.2f} m" for name, pw, ph in leftovers]), language="text")
     except Exception as e:
         st.error(f"❌ Error: {str(e)}")
+
