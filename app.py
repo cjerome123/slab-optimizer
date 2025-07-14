@@ -15,21 +15,24 @@ def can_fit(piece: Tuple[float, float], slab: Tuple[float, float]) -> Tuple[bool
 def nest_pieces(required_pieces: List[Tuple[float, float]], available_slabs: List[Tuple[float, float]]):
     results = []
     used_slabs = []
+    available_pool = available_slabs.copy()
 
-    for slab_index, slab in enumerate(available_slabs):
+    while required_pieces and available_pool:
+        slab = available_pool.pop(0)
         slab_w, slab_h = slab
         if slab_h > slab_w:
-            slab_w, slab_h = slab_h, slab_w  # Ensure landscape orientation
+            slab_w, slab_h = slab_h, slab_w
+
         layout = []
         x_cursor = 0
         y_cursor = 0
         row_height = 0
-        remaining_pieces = []
+        still_needed = []
 
         for piece in required_pieces:
             fits, orientation = can_fit(piece, (slab_w, slab_h))
             if not fits:
-                remaining_pieces.append(piece)
+                still_needed.append(piece)
                 continue
 
             pw, ph = orientation
@@ -44,12 +47,11 @@ def nest_pieces(required_pieces: List[Tuple[float, float]], available_slabs: Lis
                 layout.append(((x_cursor, y_cursor), (pw, ph)))
                 x_cursor += pw
             else:
-                remaining_pieces.append(piece)
+                still_needed.append(piece)
 
         if layout:
             results.append(((slab_w, slab_h), layout))
-            used_slabs.append((slab_w, slab_h))
-        required_pieces = remaining_pieces
+        required_pieces = still_needed
 
     return results, required_pieces
 
@@ -70,15 +72,15 @@ def draw_slab_layout(slab: Tuple[float, float], layout: List[Tuple[Tuple[float, 
 
 st.title("📦 Slab Nesting Optimizer (Landscape Layout)")
 
-req_input = st.text_area("Enter required slab sizes (in meters, one per line: width height)", "0.90 1.80\n0.60 1.20\n1.00 0.60")
-slab_input = st.text_area("Enter available slab sizes (in cm, one per line: width height)", "100 320\n120 300")
+req_input = st.text_area("Enter required slab sizes (in meters, one per line: width height)", "0.73 2.28\n0.73 3.14\n0.15 0.82")
+slab_input = st.text_area("Enter available slab sizes (in cm, one per line: width height)", "90 320\n90 320\n90 320")
 
 if st.button("Nest Slabs"):
     try:
         required = []
         for line in req_input.strip().splitlines():
             w, h = map(float, line.strip().split())
-            required.append((w * 100, h * 100))  # convert to cm
+            required.append((w * 100, h * 100))
 
         available = []
         for line in slab_input.strip().splitlines():
@@ -97,6 +99,7 @@ if st.button("Nest Slabs"):
                 st.text(f"{pw/100:.2f} x {ph/100:.2f} m")
     except Exception as e:
         st.error(f"Error: {str(e)}")
+
 
 
 
