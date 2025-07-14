@@ -3,14 +3,11 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 from typing import List, Tuple
 import itertools
-
-# -----------------------------
-# Theme Color Configuration
-# -----------------------------
+from concurrent.futures import ProcessPoolExecutor
+from numba import njit
 
 st.set_page_config(layout="wide")
 
-# Light mode only settings
 primary_bg = "#ffffff"
 font_color = "#000000"
 slab_color = "#e28a8b"
@@ -48,16 +45,13 @@ def can_fit_any_rotation(piece: Tuple[float, float], space: Tuple[float, float])
             return True, orientation
     return False, (0, 0)
 
-def guillotine_split(free_spaces: List[Tuple[float, float, float, float]],
-                     pw: float, ph: float) -> Tuple[Tuple[float, float], Tuple[float, float]]:
+def guillotine_split(free_spaces: List[Tuple[float, float, float, float]], pw: float, ph: float) -> Tuple[Tuple[float, float], Tuple[float, float]]:
     for i, (fx, fy, fw, fh) in enumerate(free_spaces):
         fits, orientation = can_fit_any_rotation((pw, ph), (fw, fh))
         if fits:
             ow, oh = orientation
             px, py = fx, fy
-            new_spaces = []
-            new_spaces.append((fx + ow, fy, fw - ow, oh))
-            new_spaces.append((fx, fy + oh, fw, fh - oh))
+            new_spaces = [(fx + ow, fy, fw - ow, oh), (fx, fy + oh, fw, fh - oh)]
             free_spaces.pop(i)
             for s in new_spaces:
                 if s[2] > 0 and s[3] > 0:
@@ -65,39 +59,37 @@ def guillotine_split(free_spaces: List[Tuple[float, float, float, float]],
             return (px, py), orientation
     return None, None
 
-def sort_pieces(pieces: List[Tuple[float, float]]) -> List[Tuple[float, float]]:
-    return sorted(pieces, key=lambda x: x[0] * x[1], reverse=True)
+def try_combo_wrapper(args):
+    return try_combo(*args)
 
 def try_combo(required_pieces: List[Tuple[str, float, float]], combo: List[Tuple[float, float]]):
     results = []
     used_slabs = []
     pieces = sorted(required_pieces, key=lambda x: x[1] * x[2], reverse=True)
-
     for slab in combo:
         sw, sh = slab
         if sh > sw:
             sw, sh = sh, sw
-
         layout = []
         free_spaces = [(0, 0, sw, sh)]
         still_needed = []
-
         for name, pw, ph in pieces:
             pos, dim = guillotine_split(free_spaces, pw, ph)
             if pos:
                 layout.append((name, pos, dim))
             else:
                 still_needed.append((name, pw, ph))
-
         if layout:
             results.append(((sw, sh), layout))
             used_slabs.append((sw, sh))
         pieces = still_needed
-
         if not pieces:
             break
-
     return results, pieces, used_slabs
+
+@njit
+def compute_area(w, h):
+    return w * h
 
 def nest_pieces_guillotine(required_pieces: List[Tuple[str, float, float]], available_slabs: List[Tuple[float, float]], use_smart_combo: bool = True):
     if not use_smart_combo:
@@ -105,17 +97,22 @@ def nest_pieces_guillotine(required_pieces: List[Tuple[str, float, float]], avai
 
     best_result = None
     min_wastage = float('inf')
-    required_area = sum(w * h for _, w, h in required_pieces)
+    required_area = sum(compute_area(w, h) for _, w, h in required_pieces)
 
-    for r in range(1, len(available_slabs) + 1):
-        for combo in itertools.combinations(available_slabs, r):
-            results, leftovers, used_slabs = try_combo(required_pieces, list(combo))
-            if not leftovers:
-                used_area = sum(w * h for w, h in used_slabs)
-                wastage = used_area - required_area
-                if wastage < min_wastage:
-                    min_wastage = wastage
-                    best_result = (results, leftovers, used_slabs)
+    combos = [combo for r in range(1, len(available_slabs) + 1) for combo in itertools.combinations(available_slabs, r)]
+    max_combinations = 1000
+    combos = combos[:max_combinations]
+
+    with ProcessPoolExecutor() as executor:
+        results_list = list(executor.map(try_combo_wrapper, [(required_pieces, list(combo)) for combo in combos]))
+
+    for results, leftovers, used_slabs in results_list:
+        if not leftovers:
+            used_area = sum(compute_area(w, h) for w, h in used_slabs)
+            wastage = used_area - required_area
+            if wastage < min_wastage:
+                min_wastage = wastage
+                best_result = (results, leftovers, used_slabs)
 
     return best_result if best_result else ([], required_pieces, [])
 
@@ -127,8 +124,7 @@ def draw_slab_layout(slab: Tuple[float, float], layout: List[Tuple[str, Tuple[fl
         label = label.strip()
         label_text = f"{int(min(w,h))}x{int(max(w,h))}" if label == "" else f"{label}\n{int(min(w,h))}x{int(max(w,h))}"
         ax.add_patch(patches.Rectangle((x, y), w, h, edgecolor='black', facecolor=piece_color))
-        ax.text(x + w / 2, y + h / 2, label_text,
-                ha='center', va='center', fontsize=10, color='black')
+        ax.text(x + w / 2, y + h / 2, label_text, ha='center', va='center', fontsize=10, color='black')
     ax.set_xlim(0, sw)
     ax.set_ylim(0, sh)
     ax.set_aspect('auto')
@@ -186,7 +182,8 @@ if st.button("📐 Nest Slabs"):
 
         st.markdown("---")
         st.subheader("🧩 Slab Layouts")
-        for slab, layout in results:
+        visible_count = st.slider("Number of slabs to display", 1, len(results), min(5, len(results))) if results else 0
+        for slab, layout in results[:visible_count]:
             st.markdown(f"**Slab:** {int(slab[0])} x {int(slab[1])} cm")
             draw_slab_layout(slab, layout)
             total_used_area += slab[0] * slab[1]
