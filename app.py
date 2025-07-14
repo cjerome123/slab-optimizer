@@ -3,6 +3,7 @@
 # This version includes:
 # - Guillotine logic functions (previously stripped)
 # - UI improvements (expander, sidebar toggle, metrics, layout visualization)
+# - Enhanced visuals: cleaner layout, better font, updated label formatting
 
 import streamlit as st
 import matplotlib.pyplot as plt
@@ -96,23 +97,36 @@ def nest_pieces_guillotine(required_pieces: List[Tuple[float, float]], available
 
 
 def draw_slab_layout(slab: Tuple[float, float], layout: List[Tuple[Tuple[float, float], Tuple[float, float]]]):
-    fig, ax = plt.subplots(figsize=(10, 4))
+    fig, ax = plt.subplots(figsize=(12, 5))
     sw, sh = slab
-    ax.add_patch(patches.Rectangle((0, 0), sw, sh, edgecolor='black', facecolor='lightgray', label='Free Area'))
+    ax.add_patch(patches.Rectangle((0, 0), sw, sh, edgecolor='black', facecolor='#f0f0f0'))
     for idx, ((x, y), (w, h)) in enumerate(layout):
-        ax.add_patch(patches.Rectangle((x, y), w, h, edgecolor='blue', facecolor='skyblue', label='Fitted Piece' if idx == 0 else ""))
-        ax.text(x + w / 2, y + h / 2, f'P{idx+1}\n{int(w)}x{int(h)}', ha='center', va='center', fontsize=7)
+        ax.add_patch(patches.Rectangle((x, y), w, h, edgecolor='navy', facecolor='#a2d2ff'))
+        ax.text(x + w / 2, y + h / 2, f'{int(min(w,h))}x{int(max(w,h))}',
+                ha='center', va='center', fontsize=8, color='black')
     ax.set_xlim(0, sw)
     ax.set_ylim(0, sh)
     ax.set_aspect('auto')
-    ax.set_xlabel('Width (longer side)')
-    ax.set_ylabel('Height (shorter side)')
-    ax.set_title(f'Nesting Layout: {int(sw)} x {int(sh)} cm')
-    ax.legend(loc='upper right')
+    ax.axis('off')
     st.pyplot(fig)
 
 
 st.set_page_config(layout="wide")
+st.markdown("""
+<style>
+    .stTextArea textarea {
+        font-family: monospace;
+        background-color: #f9f9f9;
+    }
+    .stButton>button {
+        background-color: #007bff;
+        color: white;
+        font-weight: bold;
+        border-radius: 8px;
+    }
+</style>
+""", unsafe_allow_html=True)
+
 st.title("📦 Slab Nesting Optimizer (Guillotine Packing)")
 
 with st.sidebar:
@@ -164,9 +178,9 @@ if st.button("📐 Nest Slabs"):
 
         if leftovers:
             st.warning("⚠️ These pieces did not fit in any slab:")
-            for pw, ph in leftovers:
-                st.text(f"{pw / 100:.2f} x {ph / 100:.2f} m")
+            st.code("\n".join([f"{pw / 100:.2f} x {ph / 100:.2f} m" for pw, ph in leftovers]), language="text")
     except Exception as e:
         st.error(f"❌ Error: {str(e)}")
+
 
 
