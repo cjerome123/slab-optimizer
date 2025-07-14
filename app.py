@@ -13,8 +13,8 @@ st.set_page_config(layout="wide")
 # Light mode only settings
 primary_bg = "#ffffff"
 font_color = "#000000"
-slab_color = "#fff5f5"
-piece_color = "#fffff5"
+slab_color = "#e28a8b"
+piece_color = "#e3dec3"
 input_bg = "#f9f9f9"
 
 st.markdown(f"""
@@ -38,7 +38,7 @@ st.markdown(f"""
 </style>
 """, unsafe_allow_html=True)
 
-st.title("📦 Slab Nesting Optimizer (Guillotine Packing)")
+st.title("SLAB OPTIMIZATION")
 
 # Core logic functions remain unchanged
 
@@ -126,39 +126,30 @@ def nest_pieces_guillotine(required_pieces: List[Tuple[str, float, float]], avai
     return best_result if best_result else ([], required_pieces, [])
 
 
-def draw_slab_layout(slab: Tuple[float, float], layout: List[Tuple[str, Tuple[float, float], Tuple[float, float]]]):  # updated to include dimension arrows
+def draw_slab_layout(slab: Tuple[float, float], layout: List[Tuple[str, Tuple[float, float], Tuple[float, float]]]):
     fig, ax = plt.subplots(figsize=(12, 5))
     sw, sh = slab
     ax.add_patch(patches.Rectangle((0, 0), sw, sh, edgecolor='black', facecolor=slab_color))
-    ax.text(sw / 2, sh + 15, f"{int(sw)} x {int(sh)} cm", ha='center', va='bottom', fontsize=9, color='black')
-
     for idx, (label, (x, y), (w, h)) in enumerate(layout):
         label = label.strip()
         label_text = f"{int(min(w,h))}x{int(max(w,h))}" if label == "" else f"{label}\n{int(min(w,h))}x{int(max(w,h))}"
-        ax.add_patch(patches.Rectangle((x, y), w, h, edgecolor='navy', facecolor=piece_color))
+        ax.add_patch(patches.Rectangle((x, y), w, h, edgecolor='black', facecolor=piece_color))
         ax.text(x + w / 2, y + h / 2, label_text,
-                ha='center', va='center', fontsize=8, color='black')
+                ha='center', va='center', fontsize=10, color='black')
     ax.set_xlim(0, sw)
-    ax.set_ylim(0, sh + 50)
-
-    # Add dimension arrows
-    ax.annotate('', xy=(0, -10), xytext=(sw, -10), arrowprops=dict(arrowstyle='<->', color='gray'))
-    ax.text(sw / 2, -20, f"Width: {int(sw)} cm", ha='center', va='top', fontsize=8, color='gray')
-
-    ax.annotate('', xy=(-10, 0), xytext=(-10, sh), arrowprops=dict(arrowstyle='<->', color='gray'))
-    ax.text(-20, sh / 2, f"Height: {int(sh)} cm", ha='right', va='center', rotation=90, fontsize=8, color='gray')
+    ax.set_ylim(0, sh)
     ax.set_aspect('auto')
     ax.axis('off')
     st.pyplot(fig)
 
 # --- INPUTS ---
 with st.sidebar:
-    smart_combo = st.checkbox("🔀 Enable Smart Combo (optimize slab selection)", value=True)
+    smart_combo = st.checkbox("🔀 Enable Smart Combo", value=True)
 
 with st.expander("📥 Input Dimensions", expanded=True):
     col1, col2 = st.columns(2)
     with col1:
-        req_input = st.text_area("Required pieces (name + size in meters)",
+        req_input = st.text_area("Required pieces (in m)",
                                  "Backsplash 0.65 2.53\nCounter 0.64 2.28\nSide 0.64 0.73\nIsland 0.73 2.28\nIsland 0.73 3.14\nSide 0.73 0.73\nTrim 0.08 1.67\nTrim 0.08 2.53\nAccent 0.16 0.83\nAccent 0.15 0.82")
     with col2:
         slab_input = st.text_area("Available slabs (in cm)", "160 320\n160 320")
@@ -177,8 +168,8 @@ for line in req_input.strip().splitlines():
     required_area_preview += w * h
     piece_count += 1
 
-st.caption(f"🧮 Estimated Total Area: {required_area_preview:.2f} m²")
-st.caption(f"📦 Total Pieces: {piece_count}")
+st.caption(f"🧮 Total Area Required: {required_area_preview:.2f} m²")
+st.caption(f"📦 Total Number of Slabs: {piece_count}")
 
 if st.button("📐 Nest Slabs"):
     try:
@@ -216,11 +207,11 @@ if st.button("📐 Nest Slabs"):
         st.subheader("📊 Summary")
         col1, col2, col3 = st.columns(3)
         with col1:
-            st.metric("🪵 Slabs Used", f"{len(used_slabs)}")
+            st.metric("Slabs Used", f"{len(used_slabs)}")
         with col2:
-            st.metric("📐 Total Slab Area", f"{total_used_area / 10000:.2f} m²")
+            st.metric("Total Slab Area", f"{total_used_area / 10000:.2f} m²")
         with col3:
-            st.metric("🗑️ Wastage Area", f"{(total_used_area - total_piece_area) / 10000:.2f} m²")
+            st.metric("Wastage Area", f"{(total_used_area - total_piece_area) / 10000:.2f} m²")
 
         if leftovers:
             st.warning("⚠️ These pieces did not fit in any slab:")
