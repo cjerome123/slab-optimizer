@@ -40,8 +40,6 @@ st.markdown(f"""
 
 st.title("SLAB OPTIMIZATION")
 
-# Core logic functions remain unchanged
-
 def can_fit_any_rotation(piece: Tuple[float, float], space: Tuple[float, float]) -> Tuple[bool, Tuple[float, float]]:
     pw, ph = piece
     sw, sh = space
@@ -49,7 +47,6 @@ def can_fit_any_rotation(piece: Tuple[float, float], space: Tuple[float, float])
         if orientation[0] <= sw and orientation[1] <= sh:
             return True, orientation
     return False, (0, 0)
-
 
 def guillotine_split(free_spaces: List[Tuple[float, float, float, float]],
                      pw: float, ph: float) -> Tuple[Tuple[float, float], Tuple[float, float]]:
@@ -68,10 +65,8 @@ def guillotine_split(free_spaces: List[Tuple[float, float, float, float]],
             return (px, py), orientation
     return None, None
 
-
 def sort_pieces(pieces: List[Tuple[float, float]]) -> List[Tuple[float, float]]:
     return sorted(pieces, key=lambda x: x[0] * x[1], reverse=True)
-
 
 def try_combo(required_pieces: List[Tuple[str, float, float]], combo: List[Tuple[float, float]]):
     results = []
@@ -104,7 +99,6 @@ def try_combo(required_pieces: List[Tuple[str, float, float]], combo: List[Tuple
 
     return results, pieces, used_slabs
 
-
 def nest_pieces_guillotine(required_pieces: List[Tuple[str, float, float]], available_slabs: List[Tuple[float, float]], use_smart_combo: bool = True):
     if not use_smart_combo:
         return try_combo(required_pieces, available_slabs)
@@ -124,7 +118,6 @@ def nest_pieces_guillotine(required_pieces: List[Tuple[str, float, float]], avai
                     best_result = (results, leftovers, used_slabs)
 
     return best_result if best_result else ([], required_pieces, [])
-
 
 def draw_slab_layout(slab: Tuple[float, float], layout: List[Tuple[str, Tuple[float, float], Tuple[float, float]]] ):
     fig, ax = plt.subplots(figsize=(12, 5))
@@ -150,7 +143,7 @@ with st.expander("📥 Input Dimensions", expanded=True):
     with col1:
         req_input = st.text_area("Required pieces (in m)", "", placeholder="Input data here")
     with col2:
-        slab_input = st.text_area("Available slabs (in cm)", "", placeholder="Input data here")
+        slab_input = st.text_area("Available slabs (in cm)", "60 320\n60 320\n60 320\n70 320\n70 320\n70 320\n80 320\n80 320\n80 320\n90 320\n90 320\n90 320\n100 320\n100 320\n100 320\n160 320\n160 320\n160 320")
 
 required_area_preview = 0
 piece_count = 0
