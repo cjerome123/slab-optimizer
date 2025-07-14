@@ -130,3 +130,4 @@ if st.button("Nest Slabs"):
                 st.text(f"{pw / 100:.2f} x {ph / 100:.2f} m")
     except Exception as e:
         st.error(f"Error: {str(e)}")
+
