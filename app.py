@@ -2,6 +2,7 @@ import streamlit as st
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 from typing import List, Tuple
+import itertools
 
 
 def can_fit_any_rotation(piece: Tuple[float, float], space: Tuple[float, float]) -> Tuple[bool, Tuple[float, float]]:
@@ -21,10 +22,8 @@ def guillotine_split(free_spaces: List[Tuple[float, float, float, float]],
             ow, oh = orientation
             px, py = fx, fy
             new_spaces = []
-            # Split horizontally and vertically like guillotine
-            new_spaces.append((fx + ow, fy, fw - ow, oh))  # right piece
-            new_spaces.append((fx, fy + oh, fw, fh - oh))  # bottom piece
-            # Remove used space and add new pieces
+            new_spaces.append((fx + ow, fy, fw - ow, oh))
+            new_spaces.append((fx, fy + oh, fw, fh - oh))
             free_spaces.pop(i)
             for s in new_spaces:
                 if s[2] > 0 and s[3] > 0:
@@ -37,12 +36,12 @@ def sort_pieces(pieces: List[Tuple[float, float]]) -> List[Tuple[float, float]]:
     return sorted(pieces, key=lambda x: x[0] * x[1], reverse=True)
 
 
-def nest_pieces_guillotine(required_pieces: List[Tuple[float, float]], available_slabs: List[Tuple[float, float]]):
+def try_combo(required_pieces: List[Tuple[float, float]], combo: List[Tuple[float, float]]):
     results = []
     used_slabs = []
     pieces = sort_pieces(required_pieces)
 
-    for slab in available_slabs:
+    for slab in combo:
         sw, sh = slab
         if sh > sw:
             sw, sh = sh, sw
@@ -69,6 +68,27 @@ def nest_pieces_guillotine(required_pieces: List[Tuple[float, float]], available
     return results, pieces, used_slabs
 
 
+def nest_pieces_guillotine(required_pieces: List[Tuple[float, float]], available_slabs: List[Tuple[float, float]], use_smart_combo: bool = True):
+    if not use_smart_combo:
+        return try_combo(required_pieces, available_slabs)
+
+    best_result = None
+    min_wastage = float('inf')
+    required_area = sum(w * h for w, h in required_pieces)
+
+    for r in range(1, len(available_slabs) + 1):
+        for combo in itertools.combinations(available_slabs, r):
+            results, leftovers, used_slabs = try_combo(required_pieces, list(combo))
+            if not leftovers:
+                used_area = sum(w * h for w, h in used_slabs)
+                wastage = used_area - required_area
+                if wastage < min_wastage:
+                    min_wastage = wastage
+                    best_result = (results, leftovers, used_slabs)
+
+    return best_result if best_result else ([], required_pieces, [])
+
+
 def draw_slab_layout(slab: Tuple[float, float], layout: List[Tuple[Tuple[float, float], Tuple[float, float]]]):
     fig, ax = plt.subplots(figsize=(10, 4))
     sw, sh = slab
@@ -90,6 +110,7 @@ st.title("📦 Slab Nesting Optimizer (Guillotine Packing)")
 req_input = st.text_area("Enter required slab sizes (in meters, one per line: width height)",
                          "0.65 2.53\n0.64 2.28\n0.64 0.73\n0.73 2.28\n0.73 3.14\n0.73 0.73\n0.08 1.67\n0.08 2.53\n0.16 0.83\n0.15 0.82")
 slab_input = st.text_area("Enter available slab sizes (in cm, one per line: width height)", "160 320\n160 320")
+smart_combo = st.checkbox("🔀 Enable Smart Combo (optimize slab selection)", value=True)
 
 if st.button("Nest Slabs"):
     try:
@@ -103,7 +124,7 @@ if st.button("Nest Slabs"):
             w, h = map(float, line.strip().split())
             available.append((w, h))
 
-        results, leftovers, used_slabs = nest_pieces_guillotine(required, available)
+        results, leftovers, used_slabs = nest_pieces_guillotine(required, available, use_smart_combo=smart_combo)
 
         total_used_area = 0
         total_piece_area = 0
@@ -130,3 +151,4 @@ if st.button("Nest Slabs"):
                 st.text(f"{pw / 100:.2f} x {ph / 100:.2f} m")
     except Exception as e:
         st.error(f"Error: {str(e)}")
+
