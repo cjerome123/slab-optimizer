@@ -52,7 +52,7 @@ def can_fit_any_rotation(piece: Tuple[float, float], space: Tuple[float, float])
 
 
 def guillotine_split(free_spaces: List[Tuple[float, float, float, float]],
-                     pw: float, ph: float) -> Tuple[Tuple[float, float], List[Tuple[float, float, float, float]]]:
+                     pw: float, ph: float) -> Tuple[Tuple[float, float], Tuple[float, float]]:
     for i, (fx, fy, fw, fh) in enumerate(free_spaces):
         fits, orientation = can_fit_any_rotation((pw, ph), (fw, fh))
         if fits:
@@ -126,7 +126,7 @@ def nest_pieces_guillotine(required_pieces: List[Tuple[str, float, float]], avai
     return best_result if best_result else ([], required_pieces, [])
 
 
-def draw_slab_layout(slab: Tuple[float, float], layout: List[Tuple[str, Tuple[float, float], Tuple[float, float]]]):
+def draw_slab_layout(slab: Tuple[float, float], layout: List[Tuple[str, Tuple[float, float], Tuple[float, float]]] ):
     fig, ax = plt.subplots(figsize=(12, 5))
     sw, sh = slab
     ax.add_patch(patches.Rectangle((0, 0), sw, sh, edgecolor='black', facecolor=slab_color))
@@ -142,19 +142,16 @@ def draw_slab_layout(slab: Tuple[float, float], layout: List[Tuple[str, Tuple[fl
     ax.axis('off')
     st.pyplot(fig)
 
-# --- INPUTS ---
 with st.sidebar:
     smart_combo = st.checkbox("🔀 Enable Smart Combo", value=True)
 
 with st.expander("📥 Input Dimensions", expanded=True):
     col1, col2 = st.columns(2)
     with col1:
-        req_input = st.text_area("Required pieces (in m)",
-                                 "Backsplash 0.65 2.53\nCounter 0.64 2.28\nSide 0.64 0.73\nIsland 0.73 2.28\nIsland 0.73 3.14\nSide 0.73 0.73\nTrim 0.08 1.67\nTrim 0.08 2.53\nAccent 0.16 0.83\nAccent 0.15 0.82")
+        req_input = st.text_area("Required pieces (in m)", "", placeholder="Input data here")
     with col2:
-        slab_input = st.text_area("Available slabs (in cm)", "160 320\n160 320")
+        slab_input = st.text_area("Available slabs (in cm)", "", placeholder="Input data here")
 
-# --- Real-time Stats ---
 required_area_preview = 0
 piece_count = 0
 for line in req_input.strip().splitlines():
@@ -218,4 +215,3 @@ if st.button("📐 Nest Slabs"):
             st.code("\n".join([f"{name if name else 'Unnamed'}: {pw / 100:.2f} x {ph / 100:.2f} m" for name, pw, ph in leftovers]), language="text")
     except Exception as e:
         st.error(f"❌ Error: {str(e)}")
-
