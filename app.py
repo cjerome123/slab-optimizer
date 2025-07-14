@@ -3,13 +3,13 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 from typing import List, Tuple
 
-def can_fit(piece: Tuple[float, float], slab: Tuple[float, float]) -> Tuple[bool, Tuple[float, float]]:
+def can_fit_any_rotation(piece: Tuple[float, float], slab: Tuple[float, float]) -> Tuple[bool, Tuple[float, float]]:
     pw, ph = piece
     sw, sh = slab
-    if sw >= pw and sh >= ph:
-        return True, (pw, ph)
-    elif sw >= ph and sh >= pw:
-        return True, (ph, pw)  # rotated
+    orientations = [(pw, ph), (ph, pw)]
+    for ow, oh in orientations:
+        if sw >= ow and sh >= oh:
+            return True, (ow, oh)
     return False, (0, 0)
 
 def nest_pieces(required_pieces: List[Tuple[float, float]], available_slabs: List[Tuple[float, float]]):
@@ -30,7 +30,7 @@ def nest_pieces(required_pieces: List[Tuple[float, float]], available_slabs: Lis
         still_needed = []
 
         for piece in required_pieces:
-            fits, orientation = can_fit(piece, (slab_w, slab_h))
+            fits, orientation = can_fit_any_rotation(piece, (slab_w, slab_h))
             if not fits:
                 still_needed.append(piece)
                 continue
@@ -115,3 +115,4 @@ if st.button("Nest Slabs"):
                 st.text(f"{pw / 100:.2f} x {ph / 100:.2f} m")
     except Exception as e:
         st.error(f"Error: {str(e)}")
+
