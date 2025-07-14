@@ -181,6 +181,3 @@ if st.button("📐 Nest Slabs"):
             st.code("\n".join([f"{pw / 100:.2f} x {ph / 100:.2f} m" for pw, ph in leftovers]), language="text")
     except Exception as e:
         st.error(f"❌ Error: {str(e)}")
-
-
-
