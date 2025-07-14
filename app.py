@@ -74,7 +74,7 @@ def draw_slab_layout(slab: Tuple[float, float], layout: List[Tuple[Tuple[float, 
 st.title("📦 Slab Nesting Optimizer (Landscape Layout)")
 
 req_input = st.text_area("Enter required slab sizes (in meters, one per line: width height)", "0.73 2.28\n0.73 3.14\n0.15 0.82")
-slab_input = st.text_area("Enter available slab sizes (in cm, one per line: width height)", "90 320\n90 320\n90 320")
+slab_input = st.text_area("Enter available slab sizes (in cm, one per line: width height)", "160 320\n160 320")
 
 if st.button("Nest Slabs"):
     try:
@@ -115,4 +115,5 @@ if st.button("Nest Slabs"):
                 st.text(f"{pw / 100:.2f} x {ph / 100:.2f} m")
     except Exception as e:
         st.error(f"Error: {str(e)}")
+
 
