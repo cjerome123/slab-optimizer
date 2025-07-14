@@ -18,6 +18,8 @@ def nest_pieces(required_pieces: List[Tuple[float, float]], available_slabs: Lis
 
     for slab_index, slab in enumerate(available_slabs):
         slab_w, slab_h = slab
+        if slab_h > slab_w:
+            slab_w, slab_h = slab_h, slab_w  # Ensure landscape orientation
         layout = []
         x_cursor = 0
         y_cursor = 0
@@ -45,8 +47,8 @@ def nest_pieces(required_pieces: List[Tuple[float, float]], available_slabs: Lis
                 remaining_pieces.append(piece)
 
         if layout:
-            results.append((slab, layout))
-            used_slabs.append(slab)
+            results.append(((slab_w, slab_h), layout))
+            used_slabs.append((slab_w, slab_h))
         required_pieces = remaining_pieces
 
     return results, required_pieces
@@ -61,6 +63,8 @@ def draw_slab_layout(slab: Tuple[float, float], layout: List[Tuple[Tuple[float, 
     ax.set_xlim(0, sw)
     ax.set_ylim(0, sh)
     ax.set_aspect('auto')
+    ax.set_xlabel('Width (longer side)')
+    ax.set_ylabel('Height (shorter side)')
     ax.set_title('Nesting Layout (Landscape)')
     st.pyplot(fig)
 
