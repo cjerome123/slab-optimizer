@@ -99,20 +99,20 @@ def draw_slab_layout(slab: Tuple[float, float], layout: List[Tuple[Tuple[float, 
     ax.set_xlim(0, sw)
     ax.set_ylim(0, sh)
     ax.set_aspect('auto')
-    ax.set_xlabel('Width (longer side)')
-    ax.set_ylabel('Height (shorter side)')
-    ax.set_title(f'Nesting Layout: {int(sw)} x {int(sh)} cm')
+    ax.set_xlabel('LENGTH')
+    ax.set_ylabel('WIDTH')
+    ax.set_title(f'SLAB LAYOUT: {int(sw)} x {int(sh)} cm')
     st.pyplot(fig)
 
 
-st.title("📦 Slab Nesting Optimizer (Guillotine Packing)")
+st.title("SLABBING")
 
-req_input = st.text_area("Enter required slab sizes (in meters, one per line: width height)",
+req_input = st.text_area("Enter required slab sizes (in meters)",
                          "0.65 2.53\n0.64 2.28\n0.64 0.73\n0.73 2.28\n0.73 3.14\n0.73 0.73\n0.08 1.67\n0.08 2.53\n0.16 0.83\n0.15 0.82")
-slab_input = st.text_area("Enter available slab sizes (in cm, one per line: width height)", "160 320\n160 320")
+slab_input = st.text_area("Enter available slab sizes (in cm)", "160 320\n160 320")
 smart_combo = st.checkbox("🔀 Enable Smart Combo (optimize slab selection)", value=True)
 
-if st.button("Nest Slabs"):
+if st.button("START"):
     try:
         required = []
         for line in req_input.strip().splitlines():
@@ -142,7 +142,7 @@ if st.button("Nest Slabs"):
         for slab in used_slabs:
             st.text(f"{int(slab[0])} x {int(slab[1])} cm")
 
-        st.write(f"**Total Area of Slabs Used:** {total_used_area / 10000:.2f} m²")
+        st.write(f"**Total Area:** {total_used_area / 10000:.2f} m²")
         st.write(f"**Wastage (Unused Area):** {(total_used_area - total_piece_area) / 10000:.2f} m²")
 
         if leftovers:
