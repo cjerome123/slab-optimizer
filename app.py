@@ -4,6 +4,7 @@
 # - Guillotine logic functions (previously stripped)
 # - UI improvements (expander, sidebar toggle, metrics, layout visualization)
 # - Enhanced visuals: cleaner layout, better font, updated label formatting
+# - Optional: Custom names for pieces
 
 import streamlit as st
 import matplotlib.pyplot as plt
@@ -43,10 +44,10 @@ def sort_pieces(pieces: List[Tuple[float, float]]) -> List[Tuple[float, float]]:
     return sorted(pieces, key=lambda x: x[0] * x[1], reverse=True)
 
 
-def try_combo(required_pieces: List[Tuple[float, float]], combo: List[Tuple[float, float]]):
+def try_combo(required_pieces: List[Tuple[str, float, float]], combo: List[Tuple[float, float]]):
     results = []
     used_slabs = []
-    pieces = sort_pieces(required_pieces)
+    pieces = sorted(required_pieces, key=lambda x: x[1] * x[2], reverse=True)
 
     for slab in combo:
         sw, sh = slab
@@ -57,12 +58,12 @@ def try_combo(required_pieces: List[Tuple[float, float]], combo: List[Tuple[floa
         free_spaces = [(0, 0, sw, sh)]
         still_needed = []
 
-        for piece in pieces:
-            pos, dim = guillotine_split(free_spaces, piece[0], piece[1])
+        for name, pw, ph in pieces:
+            pos, dim = guillotine_split(free_spaces, pw, ph)
             if pos:
-                layout.append((pos, dim))
+                layout.append((name, pos, dim))
             else:
-                still_needed.append(piece)
+                still_needed.append((name, pw, ph))
 
         if layout:
             results.append(((sw, sh), layout))
@@ -75,13 +76,13 @@ def try_combo(required_pieces: List[Tuple[float, float]], combo: List[Tuple[floa
     return results, pieces, used_slabs
 
 
-def nest_pieces_guillotine(required_pieces: List[Tuple[float, float]], available_slabs: List[Tuple[float, float]], use_smart_combo: bool = True):
+def nest_pieces_guillotine(required_pieces: List[Tuple[str, float, float]], available_slabs: List[Tuple[float, float]], use_smart_combo: bool = True):
     if not use_smart_combo:
         return try_combo(required_pieces, available_slabs)
 
     best_result = None
     min_wastage = float('inf')
-    required_area = sum(w * h for w, h in required_pieces)
+    required_area = sum(w * h for _, w, h in required_pieces)
 
     for r in range(1, len(available_slabs) + 1):
         for combo in itertools.combinations(available_slabs, r):
@@ -96,13 +97,13 @@ def nest_pieces_guillotine(required_pieces: List[Tuple[float, float]], available
     return best_result if best_result else ([], required_pieces, [])
 
 
-def draw_slab_layout(slab: Tuple[float, float], layout: List[Tuple[Tuple[float, float], Tuple[float, float]]]):
+def draw_slab_layout(slab: Tuple[float, float], layout: List[Tuple[str, Tuple[float, float], Tuple[float, float]]]):
     fig, ax = plt.subplots(figsize=(12, 5))
     sw, sh = slab
     ax.add_patch(patches.Rectangle((0, 0), sw, sh, edgecolor='black', facecolor='#f0f0f0'))
-    for idx, ((x, y), (w, h)) in enumerate(layout):
+    for idx, (label, (x, y), (w, h)) in enumerate(layout):
         ax.add_patch(patches.Rectangle((x, y), w, h, edgecolor='navy', facecolor='#a2d2ff'))
-        ax.text(x + w / 2, y + h / 2, f'{int(min(w,h))}x{int(max(w,h))}',
+        ax.text(x + w / 2, y + h / 2, f'{label}\n{int(min(w,h))}x{int(max(w,h))}',
                 ha='center', va='center', fontsize=8, color='black')
     ax.set_xlim(0, sw)
     ax.set_ylim(0, sh)
@@ -117,6 +118,7 @@ st.markdown("""
     .stTextArea textarea {
         font-family: monospace;
         background-color: #f9f9f9;
+        color: black;
     }
     .stButton>button {
         background-color: #007bff;
@@ -135,8 +137,8 @@ with st.sidebar:
 with st.expander("📥 Input Dimensions", expanded=True):
     col1, col2 = st.columns(2)
     with col1:
-        req_input = st.text_area("Required pieces (in meters)",
-                                 "0.65 2.53\n0.64 2.28\n0.64 0.73\n0.73 2.28\n0.73 3.14\n0.73 0.73\n0.08 1.67\n0.08 2.53\n0.16 0.83\n0.15 0.82")
+        req_input = st.text_area("Required pieces (name + size in meters)",
+                                 "Backsplash 0.65 2.53\nCounter 0.64 2.28\nSide 0.64 0.73\nIsland 0.73 2.28\nIsland 0.73 3.14\nSide 0.73 0.73\nTrim 0.08 1.67\nTrim 0.08 2.53\nAccent 0.16 0.83\nAccent 0.15 0.82")
     with col2:
         slab_input = st.text_area("Available slabs (in cm)", "160 320\n160 320")
 
@@ -144,8 +146,9 @@ if st.button("📐 Nest Slabs"):
     try:
         required = []
         for line in req_input.strip().splitlines():
-            w, h = map(float, line.strip().split())
-            required.append((w * 100, h * 100))
+            parts = line.strip().split()
+            name, w, h = parts[0], float(parts[1]), float(parts[2])
+            required.append((name, w * 100, h * 100))
 
         available = []
         for line in slab_input.strip().splitlines():
@@ -163,7 +166,7 @@ if st.button("📐 Nest Slabs"):
             st.markdown(f"**Slab:** {int(slab[0])} x {int(slab[1])} cm")
             draw_slab_layout(slab, layout)
             total_used_area += slab[0] * slab[1]
-            for (_, (w, h)) in layout:
+            for (_, _, (w, h)) in layout:
                 total_piece_area += w * h
 
         st.markdown("---")
@@ -178,6 +181,7 @@ if st.button("📐 Nest Slabs"):
 
         if leftovers:
             st.warning("⚠️ These pieces did not fit in any slab:")
-            st.code("\n".join([f"{pw / 100:.2f} x {ph / 100:.2f} m" for pw, ph in leftovers]), language="text")
+            st.code("\n".join([f"{name}: {pw / 100:.2f} x {ph / 100:.2f} m" for name, pw, ph in leftovers]), language="text")
     except Exception as e:
         st.error(f"❌ Error: {str(e)}")
+
