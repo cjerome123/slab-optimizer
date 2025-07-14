@@ -150,9 +150,9 @@ with st.expander("📥 Input Dimensions", expanded=True):
     col1, col2 = st.columns(2)
     with col1:
         req_input = st.text_area("Required pieces (in m)",
-                                 "Backsplash 0.65 2.53\nCounter 0.64 2.28\nSide 0.64 0.73\nIsland 0.73 2.28\nIsland 0.73 3.14\nSide 0.73 0.73\nTrim 0.08 1.67\nTrim 0.08 2.53\nAccent 0.16 0.83\nAccent 0.15 0.82")
+                                 "Input here")
     with col2:
-        slab_input = st.text_area("Available slabs (in cm)", "160 320\n160 320")
+        slab_input = st.text_area("Available slabs (in cm)", "Input Here")
 
 # --- Real-time Stats ---
 required_area_preview = 0
