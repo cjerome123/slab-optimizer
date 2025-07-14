@@ -14,7 +14,7 @@ st.set_page_config(layout="wide")
 primary_bg = "#ffffff"
 font_color = "#000000"
 slab_color = "#e28a8b"
-piece_color = "#a09c81"
+piece_color = "#e3dec3"
 input_bg = "#f9f9f9"
 
 st.markdown(f"""
