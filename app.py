@@ -65,9 +65,9 @@ def draw_slab_layout(slab: Tuple[float, float], layout: List[Tuple[Tuple[float, 
     ax.set_xlim(0, sw)
     ax.set_ylim(0, sh)
     ax.set_aspect('auto')
-    ax.set_xlabel('Width (longer side)')
-    ax.set_ylabel('Height (shorter side)')
-    ax.set_title(f'Nesting Layout: {int(sw)} x {int(sh)} cm')
+    ax.set_xlabel('length')
+    ax.set_ylabel('width')
+    ax.set_title(f'Slab Layout: {int(sw)} x {int(sh)} cm')
     st.pyplot(fig)
 
 st.title("Slabbing")
@@ -75,7 +75,7 @@ st.title("Slabbing")
 req_input = st.text_area("Enter required slab sizes (in meters, one per line: width height)", "0.73 2.28\n0.73 3.14\n0.15 0.82")
 slab_input = st.text_area("Enter available slab sizes (in cm, one per line: width height)", "90 320\n90 320\n90 320")
 
-if st.button("Nest Slabs"):
+if st.button("Run"):
     try:
         required = []
         for line in req_input.strip().splitlines():
