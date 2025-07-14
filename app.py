@@ -10,22 +10,12 @@ import itertools
 
 st.set_page_config(layout="wide")
 
-with st.sidebar:
-    dark_mode = st.toggle("🌙 Dark Mode", value=False)
-
-# Theme settings
-if dark_mode:
-    primary_bg = "#1c1c1c"
-    font_color = "#ffffff"
-    slab_color = "#2c2c2c"
-    piece_color = "#3c3c3c"
-    input_bg = "#333333"
-else:
-    primary_bg = "#ffffff"
-    font_color = "#000000"
-    slab_color = "#fff5f5"
-    piece_color = "#fffff5"
-    input_bg = "#f9f9f9"
+# Light mode only settings
+primary_bg = "#ffffff"
+font_color = "#000000"
+slab_color = "#fff5f5"
+piece_color = "#fffff5"
+input_bg = "#f9f9f9"
 
 st.markdown(f"""
 <style>
@@ -211,4 +201,5 @@ if st.button("📐 Nest Slabs"):
             st.code("\n".join([f"{name if name else 'Unnamed'}: {pw / 100:.2f} x {ph / 100:.2f} m" for name, pw, ph in leftovers]), language="text")
     except Exception as e:
         st.error(f"❌ Error: {str(e)}")
+
 
