@@ -51,9 +51,10 @@ def nest_pieces(required_pieces: List[Tuple[float, float]], available_slabs: Lis
 
         if layout:
             results.append(((slab_w, slab_h), layout))
+            used_slabs.append((slab_w, slab_h))
         required_pieces = still_needed
 
-    return results, required_pieces
+    return results, required_pieces, used_slabs
 
 def draw_slab_layout(slab: Tuple[float, float], layout: List[Tuple[Tuple[float, float], Tuple[float, float]]]):
     fig, ax = plt.subplots(figsize=(10, 4))
@@ -65,17 +66,17 @@ def draw_slab_layout(slab: Tuple[float, float], layout: List[Tuple[Tuple[float, 
     ax.set_xlim(0, sw)
     ax.set_ylim(0, sh)
     ax.set_aspect('auto')
-    ax.set_xlabel('length')
-    ax.set_ylabel('width')
-    ax.set_title(f'Slab Layout: {int(sw)} x {int(sh)} cm')
+    ax.set_xlabel('Width (longer side)')
+    ax.set_ylabel('Height (shorter side)')
+    ax.set_title(f'Nesting Layout: {int(sw)} x {int(sh)} cm')
     st.pyplot(fig)
 
-st.title("Slabbing")
+st.title("📦 Slab Nesting Optimizer (Landscape Layout)")
 
 req_input = st.text_area("Enter required slab sizes (in meters, one per line: width height)", "0.73 2.28\n0.73 3.14\n0.15 0.82")
 slab_input = st.text_area("Enter available slab sizes (in cm, one per line: width height)", "90 320\n90 320\n90 320")
 
-if st.button("Run"):
+if st.button("Nest Slabs"):
     try:
         required = []
         for line in req_input.strip().splitlines():
@@ -87,48 +88,30 @@ if st.button("Run"):
             w, h = map(float, line.strip().split())
             available.append((w, h))
 
-        results, leftovers = nest_pieces(required, available)
+        results, leftovers, used_slabs = nest_pieces(required, available)
+
+        total_used_area = 0
+        total_piece_area = 0
 
         for slab, layout in results:
-            st.subheader(f"Slab: {int(slab[0])} x {int(slab[1])} cm")
+            st.subheader(f"🪵 Slab: {int(slab[0])} x {int(slab[1])} cm")
             draw_slab_layout(slab, layout)
+            total_used_area += slab[0] * slab[1]
+            for (_, (w, h)) in layout:
+                total_piece_area += w * h
+
+        st.markdown("---")
+        st.subheader("📊 Summary")
+        st.write("**Slabs Used:**")
+        for slab in used_slabs:
+            st.text(f"{int(slab[0])} x {int(slab[1])} cm")
+
+        st.write(f"**Total Area of Slabs Used:** {total_used_area / 10000:.2f} m²")
+        st.write(f"**Wastage (Unused Area):** {(total_used_area - total_piece_area) / 10000:.2f} m²")
 
         if leftovers:
             st.warning("⚠️ These pieces did not fit in any slab:")
             for pw, ph in leftovers:
-                st.text(f"{pw/100:.2f} x {ph/100:.2f} m")
+                st.text(f"{pw / 100:.2f} x {ph / 100:.2f} m")
     except Exception as e:
         st.error(f"Error: {str(e)}")
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
