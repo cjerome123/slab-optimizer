@@ -154,6 +154,23 @@ with st.expander("📥 Input Dimensions", expanded=True):
     with col2:
         slab_input = st.text_area("Available slabs (in cm)", "160 320\n160 320")
 
+# --- Real-time Stats ---
+required_area_preview = 0
+piece_count = 0
+for line in req_input.strip().splitlines():
+    parts = line.strip().split()
+    if len(parts) == 3:
+        _, w, h = parts[0], float(parts[1]), float(parts[2])
+    elif len(parts) == 2:
+        w, h = float(parts[0]), float(parts[1])
+    else:
+        continue
+    required_area_preview += w * h
+    piece_count += 1
+
+st.caption(f"🧮 Estimated Total Area: {required_area_preview:.2f} m²")
+st.caption(f"📦 Total Pieces: {piece_count}")
+
 if st.button("📐 Nest Slabs"):
     try:
         required = []
@@ -201,5 +218,3 @@ if st.button("📐 Nest Slabs"):
             st.code("\n".join([f"{name if name else 'Unnamed'}: {pw / 100:.2f} x {ph / 100:.2f} m" for name, pw, ph in leftovers]), language="text")
     except Exception as e:
         st.error(f"❌ Error: {str(e)}")
-
-
