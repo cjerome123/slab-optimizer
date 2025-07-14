@@ -3,79 +3,96 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 from typing import List, Tuple
 
-def fit_slab(required_m: Tuple[float, float], available_slabs_cm: List[Tuple[float, float]]) -> Tuple[Tuple[float, float], float, Tuple[float, float], bool]:
-    required_w = required_m[0] * 100
-    required_h = required_m[1] * 100
+def can_fit(piece: Tuple[float, float], slab: Tuple[float, float]) -> Tuple[bool, Tuple[float, float]]:
+    pw, ph = piece
+    sw, sh = slab
+    if sw >= pw and sh >= ph:
+        return True, (pw, ph)
+    elif sw >= ph and sh >= pw:
+        return True, (ph, pw)  # rotated
+    return False, (0, 0)
 
-    best_fit = None
-    least_waste = float('inf')
-    orientation = (required_w, required_h)
-    rotated = False
+def nest_pieces(required_pieces: List[Tuple[float, float]], available_slabs: List[Tuple[float, float]]):
+    results = []
+    used_slabs = []
 
-    for slab in available_slabs_cm:
+    for slab_index, slab in enumerate(available_slabs):
         slab_w, slab_h = slab
+        layout = []
+        x_cursor = 0
+        y_cursor = 0
+        row_height = 0
+        remaining_pieces = []
 
-        if slab_w >= required_w and slab_h >= required_h:
-            waste = (slab_w * slab_h) - (required_w * required_h)
-            if waste < least_waste:
-                best_fit = slab
-                least_waste = waste
-                orientation = (required_w, required_h)
-                rotated = False
+        for piece in required_pieces:
+            fits, orientation = can_fit(piece, (slab_w, slab_h))
+            if not fits:
+                remaining_pieces.append(piece)
+                continue
 
-        elif slab_w >= required_h and slab_h >= required_w:
-            waste = (slab_w * slab_h) - (required_w * required_h)
-            if waste < least_waste:
-                best_fit = slab
-                least_waste = waste
-                orientation = (required_h, required_w)
-                rotated = True
+            pw, ph = orientation
+            if x_cursor + pw <= slab_w and y_cursor + ph <= slab_h:
+                layout.append(((x_cursor, y_cursor), (pw, ph)))
+                x_cursor += pw
+                row_height = max(row_height, ph)
+            elif y_cursor + row_height + ph <= slab_h:
+                x_cursor = 0
+                y_cursor += row_height
+                row_height = ph
+                layout.append(((x_cursor, y_cursor), (pw, ph)))
+                x_cursor += pw
+            else:
+                remaining_pieces.append(piece)
 
-    return best_fit, least_waste, orientation, rotated
+        if layout:
+            results.append((slab, layout))
+            used_slabs.append(slab)
+        required_pieces = remaining_pieces
 
-def draw_layout(slab_size: Tuple[float, float], piece_size: Tuple[float, float]):
-    fig, ax = plt.subplots()
-    slab_w, slab_h = slab_size
-    piece_w, piece_h = piece_size
+    return results, required_pieces
 
-    ax.add_patch(patches.Rectangle((0, 0), slab_w, slab_h, edgecolor='black', facecolor='lightgray'))
-    ax.add_patch(patches.Rectangle((0, 0), piece_w, piece_h, edgecolor='blue', facecolor='skyblue'))
-
-    ax.set_xlim(0, slab_w)
-    ax.set_ylim(0, slab_h)
-    ax.set_aspect('equal')
-    ax.set_title('Slab Layout')
+def draw_slab_layout(slab: Tuple[float, float], layout: List[Tuple[Tuple[float, float], Tuple[float, float]]]):
+    fig, ax = plt.subplots(figsize=(10, 4))
+    sw, sh = slab
+    ax.add_patch(patches.Rectangle((0, 0), sw, sh, edgecolor='black', facecolor='lightgray'))
+    for i, ((x, y), (w, h)) in enumerate(layout):
+        ax.add_patch(patches.Rectangle((x, y), w, h, edgecolor='blue', facecolor='skyblue'))
+        ax.text(x + w/2, y + h/2, f'{i+1}', ha='center', va='center', fontsize=8)
+    ax.set_xlim(0, sw)
+    ax.set_ylim(0, sh)
+    ax.set_aspect('auto')
+    ax.set_title('Nesting Layout (Landscape)')
     st.pyplot(fig)
 
-st.title("🔍 Slab Fitting Optimizer with Layout")
+st.title("📦 Slab Nesting Optimizer (Landscape Layout)")
 
-req_input = st.text_area("Enter required slab sizes (in meters, format: width height per line)", "0.90 1.80\n0.60 1.20")
-slab_input = st.text_area("Enter available slab sizes (in cm, format: width height per line)", "60 320\n90 300\n100 320")
+req_input = st.text_area("Enter required slab sizes (in meters, one per line: width height)", "0.90 1.80\n0.60 1.20\n1.00 0.60")
+slab_input = st.text_area("Enter available slab sizes (in cm, one per line: width height)", "100 320\n120 300")
 
-if st.button("Optimize Slabs"):
+if st.button("Nest Slabs"):
     try:
-        required_list = []
+        required = []
         for line in req_input.strip().splitlines():
             w, h = map(float, line.strip().split())
-            required_list.append((w, h))
+            required.append((w * 100, h * 100))  # convert to cm
 
         available = []
         for line in slab_input.strip().splitlines():
             w, h = map(float, line.strip().split())
             available.append((w, h))
 
-        for i, required in enumerate(required_list):
-            best_fit, waste, orientation, rotated = fit_slab(required, available)
+        results, leftovers = nest_pieces(required, available)
 
-            st.subheader(f"🧩 Required Piece {i+1}: {required[0]}m x {required[1]}m")
-            if best_fit:
-                st.success(f"✅ Best fit: {best_fit[0]} cm x {best_fit[1]} cm with {waste:.2f} cm² waste. {'(Rotated)' if rotated else ''}")
-                draw_layout(best_fit, orientation)
-            else:
-                st.error("❌ No suitable slab found for this piece.")
+        for i, (slab, layout) in enumerate(results):
+            st.subheader(f"🪵 Slab {i+1}: {slab[0]} x {slab[1]} cm")
+            draw_slab_layout(slab, layout)
 
+        if leftovers:
+            st.warning("⚠️ These pieces did not fit in any slab:")
+            for pw, ph in leftovers:
+                st.text(f"{pw/100:.2f} x {ph/100:.2f} m")
     except Exception as e:
-        st.error(f"⚠️ Error: {str(e)}")
+        st.error(f"Error: {str(e)}")
 
 
 
