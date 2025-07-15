@@ -179,10 +179,10 @@ for line in req_input.strip().splitlines():
     piece_count += 1
 
 with st.sidebar:
-    st.markdown("### 📊 Optimization Summary")
+    st.markdown("### 📊 Summary")
     st.metric("🧾 Total Area Required", f"{required_area_preview:.2f} m²")
     st.metric("📦 Pieces Entered", piece_count)
-    smart_combo = st.checkbox("🔀 Enable Smart Combo", value=True)
+    smart_combo = st.checkbox("🔀 Smart Combo", value=True)
 
 if st.button("📐 Nest Slabs"):
     try:
@@ -219,7 +219,7 @@ if st.button("📐 Nest Slabs"):
 
         with st.sidebar:
             st.markdown("---")
-            st.markdown("### 📊 Summary")
+            st.markdown("### 📊 Results")
             st.markdown(f"**Slabs Used:** {len(used_slabs)}")
             st.markdown(f"**Total Slab Area:** {total_used_area / 10000:.2f} m²")
             st.markdown(f"**Wastage Area:** {(total_used_area - total_piece_area) / 10000:.2f} m²")
