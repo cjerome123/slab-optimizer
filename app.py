@@ -181,10 +181,10 @@ for line in req_input.strip().splitlines():
 with st.sidebar:
     st.markdown("### 📊 Summary")
     st.metric("🧾 Total Area Required", f"{required_area_preview:.2f} m²")
-    st.metric("📦 Number of Required Slabs", piece_count)
+    st.metric("🔎 Number of Required Slabs", piece_count)
     smart_combo = st.checkbox("🔀 Smart Combo", value=True)
 
-if st.button("📐 Nest Slabs"):
+if st.button("⚙️ Nest Slabs"):
     try:
         required = []
         for line in req_input.strip().splitlines():
@@ -208,7 +208,7 @@ if st.button("📐 Nest Slabs"):
         total_piece_area = 0
 
         st.markdown("---")
-        st.subheader("🧹 Slab Layouts")
+        st.subheader("📏 Slab Layouts")
         for i, (slab, layout) in enumerate(results):
             label = f"{int(slab[0])} x {int(slab[1])} cm"
             with st.expander(f"Slab {i+1}: {label}", expanded=False):
