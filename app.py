@@ -254,7 +254,9 @@ def generate_pdf_report(results, total_used_area, total_piece_area, used_slabs, 
 
             # Draw Slab 1
             c.setFont("Helvetica-Bold", 14)
-            c.drawString(margin, height - margin, f"Slab {img1['index']+1}: {int(img1['sw'])} x {int(img1['sh'])} cm")
+            label_text = f"Slab {img1['index']+1}: {int(img1['sw'])} x {int(img1['sh'])} cm"
+            label_y = (height / 2 if img2 else margin + img1_height) + 10  # 10 pts above image
+            c.drawString(margin, label_y, label_text)
             c.drawImage(
                 img1["path"],
                 x=margin,
@@ -268,7 +270,9 @@ def generate_pdf_report(results, total_used_area, total_piece_area, used_slabs, 
             # Draw Slab 2 if available and enough space
             if img2:
                 c.setFont("Helvetica-Bold", 14)
-                c.drawString(margin, (height / 2) - margin, f"Slab {img2['index']+1}: {int(img2['sw'])} x {int(img2['sh'])} cm")
+                label_text = f"Slab {img2['index']+1}: {int(img2['sw'])} x {int(img2['sh'])} cm"
+                label_y = margin + img2_height + 10
+                c.drawString(margin, label_y, label_text)
                 c.drawImage(
                     img2["path"],
                     x=margin,
