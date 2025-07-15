@@ -105,6 +105,7 @@ def nest_pieces_guillotine(required_pieces: List[Tuple[str, float, float]], avai
 
     best_result = None
     min_wastage = float('inf')
+    min_total_slab_area = float('inf')
     required_area = sum(w * h for _, w, h in required_pieces)
 
     # Sort slabs by area ascending, prefer smaller slabs first
@@ -112,11 +113,14 @@ def nest_pieces_guillotine(required_pieces: List[Tuple[str, float, float]], avai
 
     for r in range(1, len(sorted_slabs) + 1):
         for combo in itertools.combinations(sorted_slabs, r):
+            combo = sorted(combo, key=lambda x: (x[0] * x[1], x[0]))  # prefer smaller slabs
             results, leftovers, used_slabs = try_combo(required_pieces, list(combo))
             if not leftovers:
                 used_area = sum(w * h for w, h in used_slabs)
                 wastage = used_area - required_area
-                if wastage < min_wastage:
+                total_slab_area = sum(w * h for w, h in combo)
+                if total_slab_area < min_total_slab_area or (total_slab_area == min_total_slab_area and wastage < min_wastage):
+                    min_total_slab_area = total_slab_area
                     min_wastage = wastage
                     best_result = (results, leftovers, used_slabs)
 
