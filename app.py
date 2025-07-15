@@ -292,9 +292,12 @@ if st.button("⚙️ Nest Slabs"):
             st.markdown(f"**Total Slab Area:** {total_used_area / 10000:.2f} m²")
             st.markdown(f"**Wastage Area:** {(total_used_area - total_piece_area) / 10000:.2f} m²")
 
-
         if leftovers:
             st.warning("⚠️ These pieces did not fit in any slab:")
             st.code("\n".join([f"{name if name else 'Unnamed'}: {pw / 100:.2f} x {ph / 100:.2f} m" for name, pw, ph in leftovers]), language="text")
+
+        # Generate PDF after results are computed
+        generate_pdf_report(results, total_used_area, total_piece_area, used_slabs, leftovers)
+
     except Exception as e:
         st.error(f"❌ Error: {str(e)}")
