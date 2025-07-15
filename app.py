@@ -201,7 +201,7 @@ def generate_pdf_report(results, total_used_area, total_piece_area, used_slabs, 
             for label, (x, y), (w, h) in layout:
                 label = label.strip()
                 label_text = f"{label}\n{int(min(w,h))}x{int(max(w,h))}"
-                font_size = min(max(min(w, h) // 8, 10), 16)
+                font_size = min(max(min(w, h) // 26, 26), 26)
                 ax.add_patch(patches.Rectangle((x, y), w, h, edgecolor='black', facecolor=piece_color))
                 ax.text(
                     x + w / 2, y + h / 2, label_text,
