@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 from typing import List, Tuple
 import itertools
+import concurrent.futures
 
 # -----------------------------
 # Theme Color Configuration
@@ -99,6 +100,14 @@ def try_combo(required_pieces: List[Tuple[str, float, float]], combo: List[Tuple
 
     return results, pieces, used_slabs
 
+def evaluate_combo(combo, required_pieces, required_area):
+    results, leftovers, used_slabs = try_combo(required_pieces, list(combo))
+    if leftovers:
+        return float("inf"), float("inf"), None
+    used_area = sum(w * h for w, h in used_slabs)
+    total_width = sum(w for w, _ in used_slabs)
+    return used_area, total_width, (results, leftovers, used_slabs)
+
 def nest_pieces_guillotine(required_pieces: List[Tuple[str, float, float]], available_slabs: List[Tuple[float, float]], use_smart_combo: bool = True):
     if not use_smart_combo:
         return try_combo(required_pieces, available_slabs)
@@ -108,16 +117,18 @@ def nest_pieces_guillotine(required_pieces: List[Tuple[str, float, float]], avai
     best_total_width = float('inf')
     required_area = sum(w * h for _, w, h in required_pieces)
 
+    combos = []
     for r in range(1, len(available_slabs) + 1):
-        for combo in itertools.combinations(available_slabs, r):
-            results, leftovers, used_slabs = try_combo(required_pieces, list(combo))
-            if not leftovers:
-                used_area = sum(w * h for w, h in used_slabs)
-                total_width = sum(w for w, _ in used_slabs)
-                if used_area < best_area or (used_area == best_area and total_width < best_total_width):
-                    best_area = used_area
-                    best_total_width = total_width
-                    best_result = (results, leftovers, used_slabs)
+        combos.extend(itertools.combinations(available_slabs, r))
+
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+        futures = [executor.submit(evaluate_combo, combo, required_pieces, required_area) for combo in combos]
+        for future in concurrent.futures.as_completed(futures):
+            used_area, total_width, result = future.result()
+            if result and (used_area < best_area or (used_area == best_area and total_width < best_total_width)):
+                best_area = used_area
+                best_total_width = total_width
+                best_result = result
 
     return best_result if best_result else ([], required_pieces, [])
 
