@@ -154,7 +154,7 @@ def draw_slab_layout(slab: tuple, layout: list):
         label = label.strip()
         label_text = f"{label}\n{int(min(w,h))}x{int(max(w,h))}"
         ax.add_patch(patches.Rectangle((x, y), w, h, edgecolor='black', facecolor=piece_color))
-        ax.text(x + w / 2, y + h / 2, label_text, ha='center', va='center', fontsize=10, color='black')
+        ax.text(x + w / 2, y + h / 2, label_text, ha='center', va='center', fontsize=12, fontweight='bold', color='black')
 
     ax.set_xlim(0, sw)
     ax.set_ylim(0, sh)
@@ -193,7 +193,8 @@ def generate_pdf_report(results, total_used_area, total_piece_area, used_slabs, 
                     label = label.strip()
                     label_text = f"{label}\n{int(min(w,h))}x{int(max(w,h))}"
                     ax.add_patch(patches.Rectangle((x, y), w, h, edgecolor='black', facecolor=piece_color))
-                    ax.text(x + w / 2, y + h / 2, label_text, ha='center', va='center', fontsize=6)
+                    ax.text(x + w / 2, y + h / 2, label_text, ha='center', va='center', fontsize=12, fontweight='bold', color='black')
+
                 ax.set_xlim(0, sw)
                 ax.set_ylim(0, sh)
                 ax.axis('off')
@@ -242,7 +243,8 @@ def generate_pdf_report(results, total_used_area, total_piece_area, used_slabs, 
                         label = label.strip()
                         label_text = f"{label}\n{int(min(w,h))}x{int(max(w,h))}"
                         ax.add_patch(patches.Rectangle((x, y), w, h, edgecolor='black', facecolor=piece_color))
-                        ax.text(x + w / 2, y + h / 2, label_text, ha='center', va='center', fontsize=6)
+                        ax.text(x + w / 2, y + h / 2, label_text, ha='center', va='center', fontsize=12, fontweight='bold', color='black')
+
                     ax.set_xlim(0, sw)
                     ax.set_ylim(0, sh)
                     ax.axis('off')
