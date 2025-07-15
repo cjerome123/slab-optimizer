@@ -313,3 +313,6 @@ def generate_pdf_report(results, total_used_area, total_piece_area, used_slabs, 
         with open(pdf_path, "rb") as f:
             st.download_button("📄 Download Full Report (PDF)", f.read(), file_name="slab_optimization_report.pdf", mime="application/pdf")
 
+# All slabs drawn, now generate report
+generate_pdf_report(results, total_used_area, total_piece_area, used_slabs, leftovers)
+
