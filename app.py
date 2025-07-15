@@ -111,7 +111,24 @@ def nest_pieces_guillotine(required_pieces: List[Tuple[str, float, float]], avai
     best_result = None
     min_wastage = float('inf')
 
-    # Allow repeated slab usage and simulate greedy allocation
+    # Step 1: Smart combinations first (with slab reuse)
+    for r in range(1, min(len(available_slabs), 5) + 1):
+        for combo in itertools.combinations(available_slabs, r):
+            combo_list = list(combo) * 5  # simulate slab reuse
+            results, leftovers, used = try_combo(required_pieces, combo_list)
+            if not leftovers:
+                used_area = sum(w * h for w, h in used)
+                wastage = used_area - required_area
+                if wastage < min_wastage:
+                    min_wastage = wastage
+                    best_result = (results, leftovers, used)
+        if best_result:
+            break
+
+    if best_result:
+        return best_result
+
+    # Step 2: Fallback greedy fill
     remaining_pieces = required_pieces.copy()
     results = []
     used_slabs = []
@@ -131,26 +148,8 @@ def nest_pieces_guillotine(required_pieces: List[Tuple[str, float, float]], avai
         if not placed:
             break
 
-    if not remaining_pieces:
-        used_area = sum(w * h for w, h in used_slabs)
-        wastage = used_area - required_area
-        return results, [], used_slabs
+    return results, remaining_pieces, used_slabs
 
-    # Fallback: try combinations (with reuse simulation)
-    for r in range(1, min(len(available_slabs), 5) + 1):
-        for combo in itertools.combinations(available_slabs, r):
-            combo_list = list(combo) * 5  # simulate slab reuse
-            results, leftovers, used = try_combo(required_pieces, combo_list)
-            if not leftovers:
-                used_area = sum(w * h for w, h in used)
-                wastage = used_area - required_area
-                if wastage < min_wastage:
-                    min_wastage = wastage
-                    best_result = (results, leftovers, used)
-        if best_result:
-            break
-
-    return best_result if best_result else ([], required_pieces, [])
 
 def draw_slab_layout(slab: Tuple[float, float], layout: List[Tuple[str, Tuple[float, float], Tuple[float, float]]] ):
     fig, ax = plt.subplots(figsize=(12, 5))
