@@ -9,7 +9,7 @@ import pandas as pd
 import tempfile
 import io
 import os
-from reportlab.lib.pagesizes import A4
+from reportlab.lib.pagesizes import landscape, A4
 from reportlab.pdfgen import canvas
 from reportlab.lib.units import cm
 
@@ -165,8 +165,9 @@ def draw_slab_layout(slab: tuple, layout: list):
 def generate_pdf_report(results, total_used_area, total_piece_area, used_slabs, leftovers):
     with tempfile.TemporaryDirectory() as tmpdirname:
         pdf_path = os.path.join(tmpdirname, "slab_report.pdf")
-        c = canvas.Canvas(pdf_path, pagesize=A4)
-        width, height = A4
+        page_size = landscape(A4)
+        c = canvas.Canvas(pdf_path, pagesize=page_size)
+        width, height = page_size
 
         c.setFont("Helvetica-Bold", 16)
         c.drawString(2*cm, height - 2*cm, "Slab Optimization Report")
@@ -192,15 +193,15 @@ def generate_pdf_report(results, total_used_area, total_piece_area, used_slabs, 
         c.showPage()
 
         for i, (slab, layout) in enumerate(results):
-            fig, ax = plt.subplots(figsize=(8, 5))
+            fig, ax = plt.subplots(figsize=(11, 6))  # Larger figure size for better visibility
             sw, sh = slab
-            ax.add_patch(patches.Rectangle((0, 0), sw, sh, edgecolor='black', facecolor=slab_color))
+            ax.add_patch(patches.Rectangle((0, 0), sw, sh, edgecolor='black', facecolor='#e28a8b'))
 
             for label, (x, y), (w, h) in layout:
                 label = label.strip()
                 label_text = f"{label}\n{int(min(w,h))}x{int(max(w,h))}"
-                ax.add_patch(patches.Rectangle((x, y), w, h, edgecolor='black', facecolor=piece_color))
-                ax.text(x + w / 2, y + h / 2, label_text, ha='center', va='center', fontsize=6)
+                ax.add_patch(patches.Rectangle((x, y), w, h, edgecolor='black', facecolor='#e3dec3'))
+                ax.text(x + w / 2, y + h / 2, label_text, ha='center', va='center', fontsize=7)
 
             ax.set_xlim(0, sw)
             ax.set_ylim(0, sh)
@@ -209,16 +210,16 @@ def generate_pdf_report(results, total_used_area, total_piece_area, used_slabs, 
             fig.tight_layout()
 
             img_buf = io.BytesIO()
-            fig.savefig(img_buf, format='png', dpi=150)
+            fig.savefig(img_buf, format='png', dpi=300)
             plt.close(fig)
 
             img_path = os.path.join(tmpdirname, f"layout_{i}.png")
             with open(img_path, 'wb') as f:
                 f.write(img_buf.getvalue())
 
-            c.drawImage(img_path, x=2*cm, y=6*cm, width=width - 4*cm, preserveAspectRatio=True, mask='auto')
+            c.drawImage(img_path, x=1.5*cm, y=4.5*cm, width=width - 3*cm, height=height - 9*cm, preserveAspectRatio=True, mask='auto')
             c.setFont("Helvetica", 12)
-            c.drawString(2*cm, 5.5*cm, f"Slab {i+1}: {int(sw)} x {int(sh)} cm")
+            c.drawString(1.5*cm, 3.8*cm, f"Slab {i+1}: {int(sw)} x {int(sh)} cm")
             c.showPage()
 
         c.save()
