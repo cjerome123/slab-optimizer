@@ -172,12 +172,13 @@ def draw_slab_layout(slab: tuple, layout: list):
     # Show the figure
     st.pyplot(fig)
 
-    # Export download button
+    # Export download button with unique key
     st.download_button(
-        label="📤 Download Layout as PNG",
+        label=f"📤 Download Layout {slab_index + 1} as PNG",
         data=buf.getvalue(),
-        file_name="slab_layout.png",
-        mime="image/png"
+        file_name=f"slab_layout_{slab_index + 1}.png",
+        mime="image/png",
+        key=f"download_btn_{slab_index}"
     )
 
 with st.expander("📅 Input Dimensions", expanded=True):
