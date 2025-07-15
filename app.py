@@ -106,7 +106,8 @@ def nest_pieces_guillotine(required_pieces: List[Tuple[str, float, float]], avai
         return sorted(slabs, key=lambda x: x[0] * x[1])  # prioritize smaller slabs
 
     def try_combo_wrapped(combo):
-        combo_list = list(combo) * 5  # simulate reuse
+        reuse_factor = max(1, int((required_area / sum(w * h for w, h in combo)) * 1.1))
+        combo_list = list(combo) * reuse_factor  # simulate reuse
         results, leftovers, used = try_combo(required_pieces, combo_list)
         if not leftovers:
             used_area = sum(w * h for w, h in used)
@@ -129,7 +130,7 @@ def nest_pieces_guillotine(required_pieces: List[Tuple[str, float, float]], avai
         for r in range(1, min(len(sorted_slabs), 5) + 1):
             for combo in combinations(sorted_slabs, r):
                 slab_area = sum(w * h for w, h in combo)
-                if slab_area < required_area:
+                if slab_area < required_area * 0.9:
                     continue  # filter inefficient combos
                 futures.append(executor.submit(try_combo_wrapped, combo))
 
