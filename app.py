@@ -9,7 +9,7 @@ import pandas as pd
 import tempfile
 import io
 import os
-from reportlab.lib.pagesizes import landscape, A3
+from reportlab.lib.pagesizes import landscape, letter
 from reportlab.pdfgen import canvas
 from reportlab.lib.units import cm
 
@@ -184,7 +184,7 @@ def draw_slab_layout(slab: tuple, layout: list):
 def generate_pdf_report(results, total_used_area, total_piece_area, used_slabs, leftovers):
     with tempfile.TemporaryDirectory() as tmpdirname:
         pdf_path = os.path.join(tmpdirname, "slab_report.pdf")
-        page_size = landscape(A3)  # Use A3 Landscape for more space
+        page_size = landscape(letter)  # Use letter Landscape for more space
         c = canvas.Canvas(pdf_path, pagesize=page_size)
         width, height = page_size
         margin = 2 * cm
@@ -208,7 +208,6 @@ def generate_pdf_report(results, total_used_area, total_piece_area, used_slabs, 
                     ha='center', va='center',
                     fontsize=font_size, fontweight='bold', color='black',
                     multialignment='center',
-                    bbox=dict(facecolor=piece_color, edgecolor='none', alpha=1.0, boxstyle='round,pad=0.1')
                 )
 
             ax.set_xlim(0, sw)
