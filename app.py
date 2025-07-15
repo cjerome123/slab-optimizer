@@ -9,7 +9,7 @@ import pandas as pd
 import tempfile
 import io
 import os
-from reportlab.lib.pagesizes import landscape, A4
+from reportlab.lib.pagesizes import letter, landscape
 from reportlab.pdfgen import canvas
 from reportlab.lib.units import cm
 
@@ -165,40 +165,22 @@ def draw_slab_layout(slab: tuple, layout: list):
 def generate_pdf_report(results, total_used_area, total_piece_area, used_slabs, leftovers):
     with tempfile.TemporaryDirectory() as tmpdirname:
         pdf_path = os.path.join(tmpdirname, "slab_report.pdf")
-        page_size = landscape(A4)
+        page_size = landscape(letter)
         c = canvas.Canvas(pdf_path, pagesize=page_size)
-        width, height = page_size  # now in landscape
+        width, height = page_size  # 792 x 612 points in landscape Letter
 
-        # Summary Page
-        c.setFont("Helvetica-Bold", 16)
-        c.drawString(2*cm, height - 2*cm, "Slab Optimization Report")
+        slabs_per_page = 2
+        layouts_on_page = 0
+        vertical_margin = 1.5 * cm
+        usable_height = height - 2 * vertical_margin
+        slab_height = usable_height / slabs_per_page
+        slab_width = width - 3 * cm  # allow side margins
 
-        c.setFont("Helvetica", 12)
-        c.drawString(2*cm, height - 3*cm, f"Total Slab Area Used: {total_used_area / 10000:.2f} m²")
-        c.drawString(2*cm, height - 4*cm, f"Total Piece Area: {total_piece_area / 10000:.2f} m²")
-        c.drawString(2*cm, height - 5*cm, f"Wastage Area: {(total_used_area - total_piece_area) / 10000:.2f} m²")
-        c.drawString(2*cm, height - 6*cm, f"Number of Slabs Used: {len(used_slabs)}")
-
-        if leftovers:
-            c.setFont("Helvetica-Bold", 14)
-            c.drawString(2*cm, height - 7.5*cm, "Unfitted Pieces:")
-            c.setFont("Helvetica", 12)
-            y = height - 8.2*cm
-            for name, pw, ph in leftovers:
-                c.drawString(2.5*cm, y, f"{name if name else 'Unnamed'}: {pw / 100:.2f} x {ph / 100:.2f} m")
-                y -= 0.5*cm
-                if y < 3*cm:
-                    c.showPage()
-                    y = height - 2*cm
-
-        c.showPage()
-
-        # Slab Pages (one per layout)
         for i, (slab, layout) in enumerate(results):
             sw, sh = slab
 
-            # Maximize visual size while preserving aspect ratio
-            fig_width = 12  # in inches (landscape)
+            # Matplotlib figure (scale to slab proportions, but large size)
+            fig_width = 12
             fig_height = fig_width * (sh / sw)
             fig, ax = plt.subplots(figsize=(fig_width, fig_height))
             ax.add_patch(patches.Rectangle((0, 0), sw, sh, edgecolor='black', facecolor=slab_color))
@@ -223,19 +205,33 @@ def generate_pdf_report(results, total_used_area, total_piece_area, used_slabs, 
             with open(img_path, 'wb') as f:
                 f.write(img_buf.getvalue())
 
-            # Draw slab image as large as possible
-            max_img_width = width - 3*cm
-            max_img_height = height - 4*cm
-            c.drawImage(img_path, x=1.5*cm, y=2*cm, width=max_img_width, height=max_img_height, preserveAspectRatio=True, mask='auto')
+            # Calculate position for slab in current page
+            slab_position_y = height - vertical_margin - (layouts_on_page + 1) * slab_height
 
-            # Label
-            c.setFont("Helvetica", 12)
-            c.drawString(1.5*cm, height - 1.5*cm, f"Slab {i+1}: {int(sw)} x {int(sh)} cm")
-            c.showPage()
+            # Draw slab image
+            c.drawImage(
+                img_path,
+                x=1.5 * cm,
+                y=slab_position_y,
+                width=slab_width,
+                height=slab_height,
+                preserveAspectRatio=True,
+                mask='auto'
+            )
+
+            # Draw slab label
+            c.setFont("Helvetica", 10)
+            c.drawString(1.5 * cm, slab_position_y + slab_height - 0.5 * cm, f"Slab {i+1}: {int(sw)} x {int(sh)} cm")
+
+            layouts_on_page += 1
+
+            if layouts_on_page == slabs_per_page or i == len(results) - 1:
+                c.showPage()
+                layouts_on_page = 0
 
         c.save()
 
-        # Show download button
+        # Provide download link
         with open(pdf_path, "rb") as f:
             st.sidebar.download_button("📄 Download Full PDF Report", f.read(), file_name="slab_optimization_report.pdf", mime="application/pdf")
 
