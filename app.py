@@ -100,10 +100,13 @@ def try_combo(required_pieces: List[Tuple[str, float, float]], combo: List[Tuple
     return results, pieces, used_slabs
 
 def nest_pieces_guillotine(required_pieces: List[Tuple[str, float, float]], available_slabs: List[Tuple[float, float]], use_smart_combo: bool = True):
+    from itertools import combinations
+
     def sort_slabs(slabs):
-        return sorted(slabs, key=lambda x: x[0] * x[1])
+        return sorted(slabs, key=lambda x: x[0] * x[1])  # smaller slabs first
 
     required_area = sum(w * h for _, w, h in required_pieces)
+    sorted_slabs = sort_slabs(available_slabs)
 
     if not use_smart_combo:
         return try_combo(required_pieces, available_slabs)
@@ -111,10 +114,10 @@ def nest_pieces_guillotine(required_pieces: List[Tuple[str, float, float]], avai
     best_result = None
     min_wastage = float('inf')
 
-    # Step 1: Smart combinations first (with slab reuse)
-    for r in range(1, min(len(available_slabs), 5) + 1):
-        for combo in itertools.combinations(available_slabs, r):
-            combo_list = list(combo) * 5  # simulate slab reuse
+    # Step 1: Smart Combo Phase — try all efficient slab combos with reuse
+    for r in range(1, min(len(sorted_slabs), 5) + 1):
+        for combo in combinations(sorted_slabs, r):
+            combo_list = list(combo) * 5  # simulate reuse
             results, leftovers, used = try_combo(required_pieces, combo_list)
             if not leftovers:
                 used_area = sum(w * h for w, h in used)
@@ -128,28 +131,38 @@ def nest_pieces_guillotine(required_pieces: List[Tuple[str, float, float]], avai
     if best_result:
         return best_result
 
-    # Step 2: Fallback greedy fill
-    remaining_pieces = required_pieces.copy()
+    # Step 2: Greedy Fallback with Fit Efficiency
     results = []
     used_slabs = []
-
-    sorted_slabs = sort_slabs(available_slabs)
+    remaining_pieces = sorted(required_pieces, key=lambda x: x[1] * x[2], reverse=True)
 
     while remaining_pieces:
-        placed = False
+        best_efficiency = 0
+        best_layout = None
+        best_leftovers = None
+        best_slab = None
+
         for slab in sorted_slabs:
+            sw, sh = slab
             partial_result, leftovers, used = try_combo(remaining_pieces, [slab])
             if partial_result:
-                results.extend(partial_result)
-                used_slabs.extend(used)
-                remaining_pieces = leftovers
-                placed = True
-                break
-        if not placed:
+                used_area = sw * sh
+                fitted_area = sum(w * h for (_, _, (w, h)) in partial_result[0][1])
+                efficiency = fitted_area / used_area
+                if efficiency > best_efficiency:
+                    best_efficiency = efficiency
+                    best_layout = partial_result
+                    best_leftovers = leftovers
+                    best_slab = used
+
+        if best_layout:
+            results.extend(best_layout)
+            used_slabs.extend(best_slab)
+            remaining_pieces = best_leftovers
+        else:
             break
 
     return results, remaining_pieces, used_slabs
-
 
 def draw_slab_layout(slab: Tuple[float, float], layout: List[Tuple[str, Tuple[float, float], Tuple[float, float]]] ):
     fig, ax = plt.subplots(figsize=(12, 5))
