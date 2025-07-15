@@ -9,7 +9,7 @@ import pandas as pd
 import tempfile
 import io
 import os
-from reportlab.lib.pagesizes import letter, landscape
+from reportlab.lib.pagesizes import landscape, A3
 from reportlab.pdfgen import canvas
 from reportlab.lib.units import cm
 
@@ -184,16 +184,16 @@ def draw_slab_layout(slab: tuple, layout: list):
 def generate_pdf_report(results, total_used_area, total_piece_area, used_slabs, leftovers):
     with tempfile.TemporaryDirectory() as tmpdirname:
         pdf_path = os.path.join(tmpdirname, "slab_report.pdf")
-        page_size = landscape(letter)
+        page_size = landscape(A3)  # Use A3 Landscape for more space
         c = canvas.Canvas(pdf_path, pagesize=page_size)
         width, height = page_size
-        margin = 1.5 * cm
+        margin = 2 * cm
         usable_width = width - 2 * margin
-        usable_height = height - 2 * margin
+        usable_height = height - 3 * margin
 
         for i, (slab, layout) in enumerate(results):
             sw, sh = slab
-            fig_width = 20  # Larger width for better clarity
+            fig_width = 28  # Increased width for larger visuals
             fig_height = fig_width * (sh / sw)
             fig, ax = plt.subplots(figsize=(fig_width, fig_height))
             ax.add_patch(patches.Rectangle((0, 0), sw, sh, edgecolor='black', facecolor=slab_color))
@@ -201,10 +201,15 @@ def generate_pdf_report(results, total_used_area, total_piece_area, used_slabs, 
             for label, (x, y), (w, h) in layout:
                 label = label.strip()
                 label_text = f"{label}\n{int(min(w,h))}x{int(max(w,h))}"
-                font_size = min(max(min(w, h) // 10, 10), 14)
-                if w > 20 and h > 10:
-                    ax.add_patch(patches.Rectangle((x, y), w, h, edgecolor='black', facecolor=piece_color))
-                    ax.text(x + w / 2, y + h / 2, label_text, ha='center', va='center', fontsize=font_size, fontweight='bold', color='black', multialignment='center', bbox=dict(facecolor=piece_color, edgecolor='none', alpha=1.0, boxstyle='round,pad=0.1'))
+                font_size = min(max(min(w, h) // 8, 10), 16)
+                ax.add_patch(patches.Rectangle((x, y), w, h, edgecolor='black', facecolor=piece_color))
+                ax.text(
+                    x + w / 2, y + h / 2, label_text,
+                    ha='center', va='center',
+                    fontsize=font_size, fontweight='bold', color='black',
+                    multialignment='center',
+                    bbox=dict(facecolor=piece_color, edgecolor='none', alpha=1.0, boxstyle='round,pad=0.1')
+                )
 
             ax.set_xlim(0, sw)
             ax.set_ylim(0, sh)
@@ -213,7 +218,7 @@ def generate_pdf_report(results, total_used_area, total_piece_area, used_slabs, 
             fig.tight_layout()
 
             img_buf = io.BytesIO()
-            fig.savefig(img_buf, format='png', dpi=300, bbox_inches='tight', pad_inches=0.1)
+            fig.savefig(img_buf, format='png', dpi=300, bbox_inches='tight', pad_inches=0.05)
             plt.close(fig)
 
             img_path = os.path.join(tmpdirname, f"layout_{i}.png")
@@ -221,11 +226,19 @@ def generate_pdf_report(results, total_used_area, total_piece_area, used_slabs, 
                 f.write(img_buf.getvalue())
 
             # Draw slab name on top-left
-            c.setFont("Helvetica-Bold", 16)
+            c.setFont("Helvetica-Bold", 18)
             c.drawString(margin, height - margin, f"Slab {i+1}: {int(sw)} x {int(sh)} cm")
 
-            # Draw the image below the header
-            c.drawImage(img_path, x=margin, y=margin, width=usable_width, height=height - 3 * margin, preserveAspectRatio=True, mask='auto')
+            # Draw image
+            c.drawImage(
+                img_path,
+                x=margin,
+                y=margin,
+                width=usable_width,
+                height=usable_height,
+                preserveAspectRatio=True,
+                mask='auto'
+            )
 
             c.showPage()
 
