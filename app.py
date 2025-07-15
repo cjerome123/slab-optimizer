@@ -150,21 +150,6 @@ def draw_slab_layout(slab: tuple, layout: list):
     fig, ax = plt.subplots(figsize=(fig_width, fig_height))
     ax.add_patch(patches.Rectangle((0, 0), sw, sh, edgecolor='black', facecolor=slab_color))
 
-    # Draw centered slab dimension label
-    slab_label = f"{int(sw)} x {int(sh)} cm"
-    ax.text(sw / 2, sh / 2, slab_label, ha='center', va='center', fontsize=14, color='black', weight='bold')
-
-    for label, (x, y), (w, h) in layout:
-        label = label.strip()
-        piece_label = f"{label}\n{int(min(w, h))}x{int(max(w, h))}"
-        ax.add_patch(patches.Rectangle((x, y), w, h, edgecolor='black', facecolor=piece_color))
-
-        # Dynamically compute font size
-        max_font = 12
-        min_font = 6
-        font_size = max(min(w, h) // 10, min_font)
-        font_size = min(font_size, max_font)
-
         # Draw label with background
         ax.text(
             x + w / 2, y + h / 2,
@@ -174,7 +159,6 @@ def draw_slab_layout(slab: tuple, layout: list):
             fontweight='bold',
             color='black',
             multialignment='center',
-            bbox=dict(facecolor=piece_color, edgecolor='none', alpha=1.0, boxstyle='round,pad=0.1')
         )
 
     ax.set_xlim(0, sw)
