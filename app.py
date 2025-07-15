@@ -180,9 +180,9 @@ for line in req_input.strip().splitlines():
 
 with st.sidebar:
     st.markdown("### 📊 Summary")
+    smart_combo = st.checkbox("💡 Smart Combo", value=True)
     st.metric("Total Area Required", f"{required_area_preview:.2f} m²")
     st.metric("Number of Required Slabs", piece_count)
-    smart_combo = st.checkbox("💡 Smart Combo", value=True)
 
 if st.button("⚙️ Nest Slabs"):
     try:
