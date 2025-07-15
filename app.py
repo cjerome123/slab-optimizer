@@ -182,158 +182,83 @@ def draw_slab_layout(slab: tuple, layout: list):
 
 
 def generate_pdf_report(results, total_used_area, total_piece_area, used_slabs, leftovers):
-    with tempfile.TemporaryDirectory() as tmpdirname:
-        pdf_path = os.path.join(tmpdirname, "slab_report.pdf")
-        page_size = landscape(letter)
-        c = canvas.Canvas(pdf_path, pagesize=page_size)
-        width, height = page_size
+    from reportlab.lib.pagesizes import letter, landscape
+    from reportlab.pdfgen import canvas
+    from reportlab.lib.units import cm
+    from reportlab.lib.utils import ImageReader
+    import io
+    import matplotlib.pyplot as plt
+    import matplotlib.patches as patches
 
-        slabs_per_page = 2
-        margin = 1.5 * cm
-        usable_width = width - 2 * margin
-        usable_height = height - 2 * margin
-        slab_img_height = usable_height / slabs_per_page
+    slab_color = "#e28a8b"
+    piece_color = "#e3dec3"
 
-        i = 0
-        while i < len(results):
-            slabs_on_this_page = results[i:i+slabs_per_page]
+    pdf_buffer = io.BytesIO()
+    c = canvas.Canvas(pdf_buffer, pagesize=landscape(letter))
+    width, height = landscape(letter)
 
-            if len(slabs_on_this_page) == 1:
-                slab_index = i
-                slab, layout = slabs_on_this_page[0]
-                sw, sh = slab
+    if leftovers:
+        c.setFont("Helvetica-Bold", 14)
+        c.drawString(2 * cm, height - 2 * cm, "Unfitted Pieces:")
+        c.setFont("Helvetica", 12)
+        y = height - 3 * cm
+        for name, pw, ph in leftovers:
+            c.drawString(2.5 * cm, y, f"{name if name else 'Unnamed'}: {pw / 100:.2f} x {ph / 100:.2f} m")
+            y -= 0.5 * cm
+            if y < 3 * cm:
+                c.showPage()
+                y = height - 2 * cm
+        c.showPage()
 
-                fig_width = 12
-                fig_height = fig_width * (sh / sw)
-                fig, ax = plt.subplots(figsize=(fig_width, fig_height))
-                ax.add_patch(patches.Rectangle((0, 0), sw, sh, edgecolor='black', facecolor=slab_color))
+    for i in range(0, len(results), 2):
+        slabs_to_draw = results[i:i+2]
 
-                for label, (x, y), (w, h) in layout:
-                    label = label.strip()
+        for idx, (slab, layout) in enumerate(slabs_to_draw):
+            fig, ax = plt.subplots(figsize=(8, 5))
+            sw, sh = slab
+            ax.add_patch(patches.Rectangle((0, 0), sw, sh, edgecolor='black', facecolor=slab_color))
+
+            for label, (x, y), (w, h) in layout:
+                label = label.strip() if isinstance(label, str) else ''
+                if label:
                     label_text = f"{label}\n{int(min(w,h))}x{int(max(w,h))}"
-                    max_font = 12
-                    min_font = 10
-                    font_size = max(min(w, h) // 10, min_font)
-                    font_size = min(font_size, max_font)
+                else:
+                    label_text = f"{int(min(w,h))}x{int(max(w,h))}"
+                ax.add_patch(patches.Rectangle((x, y), w, h, edgecolor='black', facecolor=piece_color))
+                ax.text(x + w / 2, y + h / 2, label_text, ha='center', va='center', fontsize=6)
 
-                    if w > 20 and h > 10:
-                        ax.add_patch(patches.Rectangle((x, y), w, h, edgecolor='black', facecolor=piece_color))
-                        ax.text(
-                            x + w / 2,
-                            y + h / 2,
-                            label_text,
-                            ha='center',
-                            va='center',
-                            fontsize=font_size,
-                            fontweight='bold',
-                            color='black',
-                            multialignment='center',
-                            bbox=dict(facecolor=piece_color, edgecolor='none', alpha=1.0, boxstyle='round,pad=0.1')
-                        )
+            ax.set_xlim(0, sw)
+            ax.set_ylim(0, sh)
+            ax.axis('off')
+            ax.set_aspect('equal')
+            fig.tight_layout()
 
-                ax.set_xlim(0, sw)
-                ax.set_ylim(0, sh)
-                ax.axis('off')
-                ax.set_aspect('equal')
-                fig.tight_layout()
+            img_buf = io.BytesIO()
+            fig.savefig(img_buf, format='png', dpi=150)
+            plt.close(fig)
+            img_buf.seek(0)
 
-                img_buf = io.BytesIO()
-                fig.savefig(img_buf, format='png', dpi=300, bbox_inches='tight', pad_inches=0)
-                plt.close(fig)
+            x_offset = 2 * cm if len(slabs_to_draw) == 1 else (2 * cm if idx == 0 else width / 2 + 1 * cm)
+            y_offset = 5 * cm
+            draw_width = (width - 6 * cm) / 2 if len(slabs_to_draw) == 2 else width - 4 * cm
+            c.drawImage(ImageReader(img_buf), x=x_offset, y=y_offset, width=draw_width, preserveAspectRatio=True, mask='auto')
 
-                img_path = os.path.join(tmpdirname, f"layout_{i}.png")
-                with open(img_path, 'wb') as f:
-                    f.write(img_buf.getvalue())
+            label_x = x_offset + draw_width - 6 * cm
+            c.setFont("Helvetica-Bold", 12)
+            c.drawString(label_x, y_offset - 0.3 * cm, f"Slab {i + idx + 1}: {int(sw)} x {int(sh)} cm")
 
-                centered_y = (height - slab_img_height) / 2
+        c.showPage()
 
-                c.drawImage(
-                    img_path,
-                    x=margin,
-                    y=centered_y,
-                    width=usable_width,
-                    height=slab_img_height,
-                    preserveAspectRatio=True,
-                    mask='auto'
-                )
+    c.save()
+    pdf_buffer.seek(0)
 
-                c.setFont("Helvetica-Bold", 14)
-                label_text = f"Slab {slab_index+1}: {int(sw)} x {int(sh)} cm"
-                c.drawRightString(width - margin, centered_y + slab_img_height + 0.5 * cm, label_text)
+    st.sidebar.download_button(
+        label="📄 Download Full PDF Report",
+        data=pdf_buffer,
+        file_name="slab_optimization_report.pdf",
+        mime="application/pdf"
+    )
 
-                c.showPage()
-
-            else:
-                for j, (slab, layout) in enumerate(slabs_on_this_page):
-                    slab_index = i + j
-                    sw, sh = slab
-
-                    fig_width = 12
-                    fig_height = fig_width * (sh / sw)
-                    fig, ax = plt.subplots(figsize=(fig_width, fig_height))
-                    ax.add_patch(patches.Rectangle((0, 0), sw, sh, edgecolor='black', facecolor=slab_color))
-
-                    for label, (x, y), (w, h) in layout:
-                        label = label.strip()
-                        label_text = f"{label}\n{int(min(w,h))}x{int(max(w,h))}"
-                        max_font = 12
-                        min_font = 10
-                        font_size = max(min(w, h) // 10, min_font)
-                        font_size = min(font_size, max_font)
-
-                        if w > 20 and h > 10:
-                            ax.add_patch(patches.Rectangle((x, y), w, h, edgecolor='black', facecolor=piece_color))
-                            ax.text(
-                                x + w / 2,
-                                y + h / 2,
-                                label_text,
-                                ha='center',
-                                va='center',
-                                fontsize=font_size,
-                                fontweight='bold',
-                                color='black',
-                                multialignment='center',
-                                bbox=dict(facecolor=piece_color, edgecolor='none', alpha=1.0, boxstyle='round,pad=0.1')
-                            )
-
-                    ax.set_xlim(0, sw)
-                    ax.set_ylim(0, sh)
-                    ax.axis('off')
-                    ax.set_aspect('equal')
-                    fig.tight_layout()
-
-                    img_buf = io.BytesIO()
-                    fig.savefig(img_buf, format='png', dpi=300, bbox_inches='tight', pad_inches=0)
-                    plt.close(fig)
-
-                    img_path = os.path.join(tmpdirname, f"layout_{slab_index}.png")
-                    with open(img_path, 'wb') as f:
-                        f.write(img_buf.getvalue())
-
-                    position_y = height - margin - ((j + 1) * slab_img_height)
-
-                    c.drawImage(
-                        img_path,
-                        x=margin,
-                        y=position_y,
-                        width=usable_width,
-                        height=slab_img_height,
-                        preserveAspectRatio=True,
-                        mask='auto'
-                    )
-
-                    c.setFont("Helvetica-Bold", 14)
-                    label_text = f"Slab {slab_index+1}: {int(sw)} x {int(sh)} cm"
-                    c.drawRightString(width - margin, position_y + slab_img_height + 0.5 * cm, label_text)
-
-                c.showPage()
-
-            i += slabs_per_page
-
-        c.save()
-
-        with open(pdf_path, "rb") as f:
-            st.sidebar.download_button("📄 Download Full PDF Report", f.read(), file_name="slab_optimization_report.pdf", mime="application/pdf")
 
 with st.expander("📅 Input Dimensions", expanded=True):
     col1, col2 = st.columns(2)
