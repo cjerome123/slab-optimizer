@@ -151,27 +151,28 @@ def draw_slab_layout(slab: tuple, layout: list):
     ax.add_patch(patches.Rectangle((0, 0), sw, sh, edgecolor='black', facecolor=slab_color))
 
     for label, (x, y), (w, h) in layout:
-    label = label.strip()
-    if label:
-        piece_label = f"{label}\\n{int(min(w, h))}x{int(max(w, h))}"
-    else:
-        piece_label = f"{int(min(w, h))}x{int(max(w, h))}"
+        label = label.strip()
+        if label:
+            piece_label = f"{label}\n{int(min(w, h))}x{int(max(w, h))}"
+        else:
+            piece_label = f"{int(min(w, h))}x{int(max(w, h))}"
 
-    max_font = 12
-    min_font = 6
-    font_size = max(min(w, h) // 10, min_font)
-    font_size = min(font_size, max_font)
+        # Dynamically compute font size
+        max_font = 12
+        min_font = 6
+        font_size = max(min(w, h) // 10, min_font)
+        font_size = min(font_size, max_font)
 
-    ax.add_patch(patches.Rectangle((x, y), w, h, edgecolor='black', facecolor=piece_color))
-    ax.text(
-        x + w / 2, y + h / 2,
-        piece_label,
-        ha='center', va='center',
-        fontsize=font_size,
-        fontweight='bold',
-        color='black',
-        multialignment='center'
-    )
+        ax.add_patch(patches.Rectangle((x, y), w, h, edgecolor='black', facecolor=piece_color))
+        ax.text(
+            x + w / 2, y + h / 2,
+            piece_label,
+            ha='center', va='center',
+            fontsize=font_size,
+            fontweight='bold',
+            color='black',
+            multialignment='center'
+        )
 
     ax.set_xlim(0, sw)
     ax.set_ylim(0, sh)
