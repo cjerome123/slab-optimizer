@@ -198,7 +198,7 @@ def generate_pdf_report(results, total_used_area, total_piece_area, used_slabs, 
             fig, ax = plt.subplots(figsize=(fig_width, fig_height))
             ax.add_patch(patches.Rectangle((0, 0), sw, sh, edgecolor='black', facecolor=slab_color))
 
-             for label, (x, y), (w, h) in layout:
+            for label, (x, y), (w, h) in layout:
                 label = label.strip()
                 label_text = f"{label}\n{int(min(w,h))}x{int(max(w,h))}"
                 font_size = min(max(min(w, h) // 8, 10), 16)
