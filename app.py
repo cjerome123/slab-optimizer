@@ -199,22 +199,34 @@ def generate_pdf_report(results, total_used_area, total_piece_area, used_slabs, 
             ax.add_patch(patches.Rectangle((0, 0), sw, sh, edgecolor='black', facecolor=slab_color))
 
             for label, (x, y), (w, h) in layout:
-                label = label.strip()
-                label_text = f"{label}\n{int(min(w,h))}x{int(max(w,h))}"
-                font_size = min(max(min(w, h) // 16, 16), 16)
-                ax.add_patch(patches.Rectangle((x, y), w, h, edgecolor='black', facecolor=piece_color))
-                ax.text(
-                    x + w / 2, y + h / 2, label_text,
-                    ha='center', va='center',
-                    fontsize=font_size, fontweight='bold', color='black',
-                    multialignment='center',
-                )
+        label = label.strip()
+        if label:
+            piece_label = f"{label}\n{int(min(w, h))}x{int(max(w, h))}"
+        else:
+            piece_label = f"{int(min(w, h))}x{int(max(w, h))}"
 
-            ax.set_xlim(0, sw)
-            ax.set_ylim(0, sh)
-            ax.axis('off')
-            ax.set_aspect('equal')
-            fig.tight_layout()
+        # Dynamically compute font size
+        max_font = 12
+        min_font = 6
+        font_size = max(min(w, h) // 10, min_font)
+        font_size = min(font_size, max_font)
+
+        ax.add_patch(patches.Rectangle((x, y), w, h, edgecolor='black', facecolor=piece_color))
+        ax.text(
+            x + w / 2, y + h / 2,
+            piece_label,
+            ha='center', va='center',
+            fontsize=font_size,
+            fontweight='bold',
+            color='black',
+            multialignment='center'
+        )
+
+    ax.set_xlim(0, sw)
+    ax.set_ylim(0, sh)
+    ax.set_aspect('equal')  # Maintain proper aspect ratio for positioning
+    ax.axis('off')
+    st.pyplot(fig)
 
             img_buf = io.BytesIO()
             fig.savefig(img_buf, format='png', dpi=300, bbox_inches='tight', pad_inches=0.05)
