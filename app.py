@@ -5,6 +5,7 @@ from typing import List, Tuple
 import itertools
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from itertools import combinations
+import hashlib
 
 # -----------------------------
 # Theme Color Configuration
@@ -41,6 +42,13 @@ st.markdown(f"""
 """, unsafe_allow_html=True)
 
 st.title("SLAB OPTIMIZATION")
+
+def label_to_color(label):
+    hash_val = int(hashlib.md5(label.encode()).hexdigest(), 16)
+    r = (hash_val >> 16) & 255
+    g = (hash_val >> 8) & 255
+    b = hash_val & 255
+    return f"#{r:02x}{g:02x}{b:02x}"
 
 def can_fit_any_rotation(piece: Tuple[float, float], space: Tuple[float, float]) -> Tuple[bool, Tuple[float, float]]:
     pw, ph = piece
