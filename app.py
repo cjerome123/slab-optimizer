@@ -252,15 +252,22 @@ def generate_pdf_report(results, total_used_area, total_piece_area, used_slabs, 
             img2_height = half_height
             img2_width = usable_width
 
-            # Draw Slab 1
+            label_padding = 20  # points to leave space for the label
+
+            # Slab 1 label & image
             c.setFont("Helvetica-Bold", 14)
-            label_text = f"Slab {img1['index']+1}: {int(img1['sw'])} x {int(img1['sh'])} cm"
-            label_y = (height / 2 if img2 else margin + img1_height) + 10  # 10 pts above image
-            c.drawString(margin, label_y, label_text)
+            label1_text = f"Slab {img1['index']+1}: {int(img1['sw'])} x {int(img1['sh'])} cm"
+            if img2:
+                img1_y = (height / 2) + label_padding
+                label1_y = img1_y + img1_height + 4  # a little above the image
+            else:
+                img1_y = margin + label_padding
+                label1_y = img1_y + img1_height + 4
+            c.drawString(margin, label1_y, label1_text)
             c.drawImage(
                 img1["path"],
                 x=margin,
-                y=(height / 2 if img2 else margin),
+                y=img1_y,
                 width=img1_width,
                 height=img1_height,
                 preserveAspectRatio=True,
@@ -270,13 +277,14 @@ def generate_pdf_report(results, total_used_area, total_piece_area, used_slabs, 
             # Draw Slab 2 if available and enough space
             if img2:
                 c.setFont("Helvetica-Bold", 14)
-                label_text = f"Slab {img2['index']+1}: {int(img2['sw'])} x {int(img2['sh'])} cm"
-                label_y = margin + img2_height + 10
-                c.drawString(margin, label_y, label_text)
+                label2_text = f"Slab {img2['index']+1}: {int(img2['sw'])} x {int(img2['sh'])} cm"
+                img2_y = margin + label_padding
+                label2_y = img2_y + img2_height + 4
+                c.drawString(margin, label2_y, label2_text)
                 c.drawImage(
                     img2["path"],
                     x=margin,
-                    y=margin,
+                    y=img2_y,
                     width=img2_width,
                     height=img2_height,
                     preserveAspectRatio=True,
