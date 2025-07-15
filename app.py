@@ -3,7 +3,6 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 from typing import List, Tuple
 import itertools
-import concurrent.futures
 
 # -----------------------------
 # Theme Color Configuration
@@ -40,9 +39,6 @@ st.markdown(f"""
 """, unsafe_allow_html=True)
 
 st.title("SLAB OPTIMIZATION")
-
-# Performance toggle
-performance_mode = st.sidebar.checkbox("⚡ Performance Mode", value=True)
 
 def can_fit_any_rotation(piece: Tuple[float, float], space: Tuple[float, float]) -> Tuple[bool, Tuple[float, float]]:
     pw, ph = piece
@@ -103,40 +99,27 @@ def try_combo(required_pieces: List[Tuple[str, float, float]], combo: List[Tuple
 
     return results, pieces, used_slabs
 
-def evaluate_combo(combo, required_pieces, required_area):
-    results, leftovers, used_slabs = try_combo(required_pieces, list(combo))
-    if leftovers:
-        return float("inf"), float("inf"), None
-    used_area = sum(w * h for w, h in used_slabs)
-    total_width = sum(w for w, _ in used_slabs)
-    return used_area, total_width, (results, leftovers, used_slabs)
-
 def nest_pieces_guillotine(required_pieces: List[Tuple[str, float, float]], available_slabs: List[Tuple[float, float]], use_smart_combo: bool = True):
     if not use_smart_combo:
         return try_combo(required_pieces, available_slabs)
 
     best_result = None
-    best_area = float('inf')
-    best_total_width = float('inf')
+    min_wastage = float('inf')
     required_area = sum(w * h for _, w, h in required_pieces)
 
-    combos = []
     for r in range(1, len(available_slabs) + 1):
-        combos.extend(itertools.combinations(available_slabs, r))
-
-    executor_type = concurrent.futures.ProcessPoolExecutor if performance_mode else concurrent.futures.ThreadPoolExecutor
-    with executor_type() as executor:
-        futures = [executor.submit(evaluate_combo, combo, required_pieces, required_area) for combo in combos]
-        for future in concurrent.futures.as_completed(futures):
-            used_area, total_width, result = future.result()
-            if result and (used_area < best_area or (used_area == best_area and total_width < best_total_width)):
-                best_area = used_area
-                best_total_width = total_width
-                best_result = result
+        for combo in itertools.combinations(available_slabs, r):
+            results, leftovers, used_slabs = try_combo(required_pieces, list(combo))
+            if not leftovers:
+                used_area = sum(w * h for w, h in used_slabs)
+                wastage = used_area - required_area
+                if wastage < min_wastage:
+                    min_wastage = wastage
+                    best_result = (results, leftovers, used_slabs)
 
     return best_result if best_result else ([], required_pieces, [])
 
-def draw_slab_layout(slab: Tuple[float, float], layout: List[Tuple[str, Tuple[float, float], Tuple[float, float]]]):
+def draw_slab_layout(slab: Tuple[float, float], layout: List[Tuple[str, Tuple[float, float], Tuple[float, float]]] ):
     fig, ax = plt.subplots(figsize=(12, 5))
     sw, sh = slab
     ax.add_patch(patches.Rectangle((0, 0), sw, sh, edgecolor='black', facecolor=slab_color))
@@ -155,12 +138,12 @@ def draw_slab_layout(slab: Tuple[float, float], layout: List[Tuple[str, Tuple[fl
 with st.sidebar:
     smart_combo = st.checkbox("🔀 Enable Smart Combo", value=True)
 
-with st.expander("📥 Input Dimensions", expanded=True):
+with st.expander("📅 Input Dimensions", expanded=True):
     col1, col2 = st.columns(2)
     with col1:
         req_input = st.text_area("Required pieces (in m)", "", placeholder="Input data here")
     with col2:
-        slab_input = st.text_area("Available slabs (in cm)", "60 320\n60 320\n60 320\n70 320\n70 320\n70 320\n80 320\n80 320\n80 320\n90 320\n90 320\n90 320\n100 320\n100 320\n100 320\n160 320\n160 320\n160 320")
+        slab_input = st.text_area("Available slabs (in cm)", "60 320\n70 320\n80 320\n90 320\n100 320\n160 320")
 
 required_area_preview = 0
 piece_count = 0
@@ -174,6 +157,9 @@ for line in req_input.strip().splitlines():
         continue
     required_area_preview += w * h
     piece_count += 1
+
+st.caption(f"🧾 Total Area Required: {required_area_preview:.2f} m²")
+st.caption(f"📦 Total Number of Slabs: {piece_count}")
 
 if st.button("📐 Nest Slabs"):
     try:
@@ -210,19 +196,14 @@ if st.button("📐 Nest Slabs"):
 
         with st.sidebar:
             st.markdown("---")
-            st.markdown("### 📥 Input Overview")
-            st.markdown(f"**Total Area Required:** {required_area_preview:.2f} m²")
-            st.markdown(f"**Total Number of Slabs:** {piece_count}")
-            st.markdown("---")
             st.markdown("### 📊 Summary")
             st.markdown(f"**Slabs Used:** {len(used_slabs)}")
             st.markdown(f"**Total Slab Area:** {total_used_area / 10000:.2f} m²")
             st.markdown(f"**Wastage Area:** {(total_used_area - total_piece_area) / 10000:.2f} m²")
 
+
         if leftovers:
             st.warning("⚠️ These pieces did not fit in any slab:")
             st.code("\n".join([f"{name if name else 'Unnamed'}: {pw / 100:.2f} x {ph / 100:.2f} m" for name, pw, ph in leftovers]), language="text")
-
     except Exception as e:
         st.error(f"❌ Error: {str(e)}")
-
