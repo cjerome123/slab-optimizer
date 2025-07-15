@@ -169,7 +169,7 @@ def draw_slab_layout(slab: tuple, layout: list):
             fontweight='bold',
             color='black',
             multialignment='center',
-            bbox=dict(facecolor=piece_color, edgecolor='none', alpha=1.0, boxstyle='round,pad=0.1')
+            
         )
 
     ax.set_xlim(0, sw)
