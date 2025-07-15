@@ -5,7 +5,6 @@ from typing import List, Tuple
 import itertools
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from itertools import combinations
-import hashlib
 
 # -----------------------------
 # Theme Color Configuration
@@ -42,13 +41,6 @@ st.markdown(f"""
 """, unsafe_allow_html=True)
 
 st.title("SLAB OPTIMIZATION")
-
-def label_to_color(label):
-    hash_val = int(hashlib.md5(label.encode()).hexdigest(), 16)
-    r = (hash_val >> 16) & 255
-    g = (hash_val >> 8) & 255
-    b = hash_val & 255
-    return f"#{r:02x}{g:02x}{b:02x}"
 
 def can_fit_any_rotation(piece: Tuple[float, float], space: Tuple[float, float]) -> Tuple[bool, Tuple[float, float]]:
     pw, ph = piece
@@ -157,8 +149,7 @@ def draw_slab_layout(slab: Tuple[float, float], layout: List[Tuple[str, Tuple[fl
     for idx, (label, (x, y), (w, h)) in enumerate(layout):
         label = label.strip()
         label_text = f"{int(min(w,h))}x{int(max(w,h))}" if label == "" else f"{label}\n{int(min(w,h))}x{int(max(w,h))}"
-        color = label_to_color(label)
-        ax.add_patch(patches.Rectangle((x, y), w, h, edgecolor='black', facecolor=color))
+        ax.add_patch(patches.Rectangle((x, y), w, h, edgecolor='black', facecolor=piece_color))
         ax.text(x + w / 2, y + h / 2, label_text,
                 ha='center', va='center', fontsize=10, color='black')
     ax.set_xlim(0, sw)
