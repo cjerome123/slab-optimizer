@@ -3,6 +3,8 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 from typing import List, Tuple
 import itertools
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from itertools import combinations
 
 # -----------------------------
 # Theme Color Configuration
@@ -100,10 +102,17 @@ def try_combo(required_pieces: List[Tuple[str, float, float]], combo: List[Tuple
     return results, pieces, used_slabs
 
 def nest_pieces_guillotine(required_pieces: List[Tuple[str, float, float]], available_slabs: List[Tuple[float, float]], use_smart_combo: bool = True):
-    from itertools import combinations
-
     def sort_slabs(slabs):
         return sorted(slabs, key=lambda x: x[0] * x[1])  # prioritize smaller slabs
+
+    def try_combo_wrapped(combo):
+        combo_list = list(combo) * 5  # simulate reuse
+        results, leftovers, used = try_combo(required_pieces, combo_list)
+        if not leftovers:
+            used_area = sum(w * h for w, h in used)
+            wastage = used_area - required_area
+            return wastage, (results, leftovers, used)
+        return float('inf'), None
 
     required_area = sum(w * h for _, w, h in required_pieces)
     sorted_slabs = sort_slabs(available_slabs)
@@ -114,21 +123,24 @@ def nest_pieces_guillotine(required_pieces: List[Tuple[str, float, float]], avai
     best_result = None
     min_wastage = float('inf')
 
-    # Smart Combo Phase — try all efficient slab combos with reuse
-    for r in range(1, min(len(sorted_slabs), 5) + 1):
-        for combo in combinations(sorted_slabs, r):
-            combo_list = list(combo) * 5  # simulate reuse
-            results, leftovers, used = try_combo(required_pieces, combo_list)
-            if not leftovers:
-                used_area = sum(w * h for w, h in used)
-                wastage = used_area - required_area
-                if wastage < min_wastage:
-                    min_wastage = wastage
-                    best_result = (results, leftovers, used)
-        if best_result:
-            break
+    # Smart Combo Phase — parallel combo filtering and evaluation
+    with ThreadPoolExecutor() as executor:
+        futures = []
+        for r in range(1, min(len(sorted_slabs), 5) + 1):
+            for combo in combinations(sorted_slabs, r):
+                slab_area = sum(w * h for w, h in combo)
+                if slab_area < required_area:
+                    continue  # filter inefficient combos
+                futures.append(executor.submit(try_combo_wrapped, combo))
+
+        for future in as_completed(futures):
+            wastage, result = future.result()
+            if result and wastage < min_wastage:
+                min_wastage = wastage
+                best_result = result
 
     return best_result if best_result else ([], required_pieces, [])
+    
 
 def draw_slab_layout(slab: Tuple[float, float], layout: List[Tuple[str, Tuple[float, float], Tuple[float, float]]] ):
     fig, ax = plt.subplots(figsize=(12, 5))
