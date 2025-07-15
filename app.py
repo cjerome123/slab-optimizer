@@ -5,7 +5,6 @@ from typing import List, Tuple
 import itertools
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from itertools import combinations
-import io
 
 # -----------------------------
 # Theme Color Configuration
@@ -163,23 +162,6 @@ def draw_slab_layout(slab: tuple, layout: list):
     ax.set_aspect('auto')
     ax.axis('off')
     st.pyplot(fig)
-
-    # Save to buffer BEFORE displaying
-    buf = io.BytesIO()
-    fig.savefig(buf, format="png")
-    buf.seek(0)
-
-    # Show the figure
-    st.pyplot(fig)
-
-    # Export download button with unique key
-    st.download_button(
-        label=f"📤 Download Layout {slab_index + 1} as PNG",
-        data=buf.getvalue(),
-        file_name=f"slab_layout_{slab_index + 1}.png",
-        mime="image/png",
-        key=f"download_btn_{slab_index}"
-    )
 
 with st.expander("📅 Input Dimensions", expanded=True):
     col1, col2 = st.columns(2)
