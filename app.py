@@ -152,7 +152,11 @@ def draw_slab_layout(slab: tuple, layout: list):
 
     for label, (x, y), (w, h) in layout:
         label = label.strip()
-        piece_label = f"{label}\n{int(min(w, h))}x{int(max(w, h))}"
+        if label:
+            piece_label = f"{label}
+{int(min(w, h))}x{int(max(w, h))}"
+        else:
+            piece_label = f"{int(min(w, h))}x{int(max(w, h))}"
 
         # Dynamically compute font size
         max_font = 12
@@ -177,6 +181,7 @@ def draw_slab_layout(slab: tuple, layout: list):
     ax.set_aspect('equal')  # Maintain proper aspect ratio for positioning
     ax.axis('off')
     st.pyplot(fig)
+
 
 def generate_pdf_report(results, total_used_area, total_piece_area, used_slabs, leftovers):
     with tempfile.TemporaryDirectory() as tmpdirname:
