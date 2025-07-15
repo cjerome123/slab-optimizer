@@ -416,6 +416,7 @@ if st.button("⚙️ Nest Slabs"):
             st.code("\n".join([f"{name if name else 'Unnamed'}: {pw / 100:.2f} x {ph / 100:.2f} m" for name, pw, ph in leftovers]), language="text")
 
         # Generate PDF after results are computed
+        st.session_state.pop("pdf_bytes", None)  # clear previous
         generate_pdf_report(results, total_used_area, total_piece_area, used_slabs, leftovers)
 
     except Exception as e:
