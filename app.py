@@ -142,16 +142,21 @@ def nest_pieces_guillotine(required_pieces: List[Tuple[str, float, float]], avai
     return best_result if best_result else ([], required_pieces, [])
     
 
-def draw_slab_layout(slab: Tuple[float, float], layout: List[Tuple[str, Tuple[float, float], Tuple[float, float]]] ):
-    fig, ax = plt.subplots(figsize=(12, 5))
+def draw_slab_layout(slab: tuple, layout: list):
     sw, sh = slab
-    ax.add_patch(patches.Rectangle((0, 0), sw, sh, edgecolor='black', facecolor=slab_color, linewidth=0.5, antialiased=True))
+    fig_width = 10
+    fig_height = fig_width * (sh / sw)
+    fig, ax = plt.subplots(figsize=(fig_width, fig_height))
+
+    ax.add_patch(patches.Rectangle((0, 0), sw, sh, edgecolor='black', facecolor="#e28a8b", linewidth=0.5, antialiased=True))
+
     for idx, (label, (x, y), (w, h)) in enumerate(layout):
         label = label.strip()
         label_text = f"{int(min(w,h))}x{int(max(w,h))}" if label == "" else f"{label}\n{int(min(w,h))}x{int(max(w,h))}"
-        ax.add_patch(patches.Rectangle((x, y), w, h, edgecolor='black', facecolor=piece_color))
+        ax.add_patch(patches.Rectangle((x, y), w, h, edgecolor='black', facecolor="#e3dec3"))
         ax.text(x + w / 2, y + h / 2, label_text,
                 ha='center', va='center', fontsize=10, color='black')
+
     ax.set_xlim(0, sw)
     ax.set_ylim(0, sh)
     ax.set_aspect('auto')
