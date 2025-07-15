@@ -187,47 +187,47 @@ def generate_pdf_report(results, total_used_area, total_piece_area, used_slabs, 
         page_size = landscape(letter)
         c = canvas.Canvas(pdf_path, pagesize=page_size)
         width, height = page_size
-        slabs_per_page = 2
         margin = 1.5 * cm
         usable_width = width - 2 * margin
         usable_height = height - 2 * margin
-        slab_img_height = usable_height / slabs_per_page
 
-        i = 0
-        while i < len(results):
-            slabs_on_this_page = results[i:i+slabs_per_page]
-            for j, (slab, layout) in enumerate(slabs_on_this_page):
-                slab_index = i + j
-                sw, sh = slab
-                fig_width = 12
-                fig_height = fig_width * (sh / sw)
-                fig, ax = plt.subplots(figsize=(fig_width, fig_height))
-                ax.add_patch(patches.Rectangle((0, 0), sw, sh, edgecolor='black', facecolor=slab_color))
-                for label, (x, y), (w, h) in layout:
-                    label = label.strip()
-                    label_text = f"{label}\n{int(min(w,h))}x{int(max(w,h))}"
-                    font_size = min(max(min(w, h) // 10, 10), 12)
-                    if w > 20 and h > 10:
-                        ax.add_patch(patches.Rectangle((x, y), w, h, edgecolor='black', facecolor=piece_color))
-                        ax.text(x + w / 2, y + h / 2, label_text, ha='center', va='center', fontsize=font_size, fontweight='bold', color='black', multialignment='center', bbox=dict(facecolor=piece_color, edgecolor='none', alpha=1.0, boxstyle='round,pad=0.1'))
-                ax.set_xlim(0, sw)
-                ax.set_ylim(0, sh)
-                ax.axis('off')
-                ax.set_aspect('equal')
-                fig.tight_layout()
-                img_buf = io.BytesIO()
-                fig.savefig(img_buf, format='png', dpi=300, bbox_inches='tight', pad_inches=0)
-                plt.close(fig)
-                img_path = os.path.join(tmpdirname, f"layout_{slab_index}.png")
-                with open(img_path, 'wb') as f:
-                    f.write(img_buf.getvalue())
-                position_y = height - margin - ((j + 1) * slab_img_height)
-                c.drawImage(img_path, x=margin, y=position_y, width=usable_width, height=slab_img_height, preserveAspectRatio=True, mask='auto')
-                c.setFont("Helvetica-Bold", 14)
-                label_text = f"Slab {slab_index+1}: {int(sw)} x {int(sh)} cm"
-                c.drawRightString(width - margin, position_y + slab_img_height + 0.5 * cm, label_text)
+        for i, (slab, layout) in enumerate(results):
+            sw, sh = slab
+            fig_width = 20  # Larger width for better clarity
+            fig_height = fig_width * (sh / sw)
+            fig, ax = plt.subplots(figsize=(fig_width, fig_height))
+            ax.add_patch(patches.Rectangle((0, 0), sw, sh, edgecolor='black', facecolor=slab_color))
+
+            for label, (x, y), (w, h) in layout:
+                label = label.strip()
+                label_text = f"{label}\n{int(min(w,h))}x{int(max(w,h))}"
+                font_size = min(max(min(w, h) // 10, 10), 14)
+                if w > 20 and h > 10:
+                    ax.add_patch(patches.Rectangle((x, y), w, h, edgecolor='black', facecolor=piece_color))
+                    ax.text(x + w / 2, y + h / 2, label_text, ha='center', va='center', fontsize=font_size, fontweight='bold', color='black', multialignment='center', bbox=dict(facecolor=piece_color, edgecolor='none', alpha=1.0, boxstyle='round,pad=0.1'))
+
+            ax.set_xlim(0, sw)
+            ax.set_ylim(0, sh)
+            ax.axis('off')
+            ax.set_aspect('equal')
+            fig.tight_layout()
+
+            img_buf = io.BytesIO()
+            fig.savefig(img_buf, format='png', dpi=300, bbox_inches='tight', pad_inches=0.1)
+            plt.close(fig)
+
+            img_path = os.path.join(tmpdirname, f"layout_{i}.png")
+            with open(img_path, 'wb') as f:
+                f.write(img_buf.getvalue())
+
+            # Draw slab name on top-left
+            c.setFont("Helvetica-Bold", 16)
+            c.drawString(margin, height - margin, f"Slab {i+1}: {int(sw)} x {int(sh)} cm")
+
+            # Draw the image below the header
+            c.drawImage(img_path, x=margin, y=margin, width=usable_width, height=height - 3 * margin, preserveAspectRatio=True, mask='auto')
+
             c.showPage()
-            i += slabs_per_page
 
         c.save()
         with open(pdf_path, "rb") as f:
