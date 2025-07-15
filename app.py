@@ -150,7 +150,17 @@ def draw_slab_layout(slab: tuple, layout: list):
     fig, ax = plt.subplots(figsize=(fig_width, fig_height))
     ax.add_patch(patches.Rectangle((0, 0), sw, sh, edgecolor='black', facecolor=slab_color))
 
-        # Draw label with background
+    for label, (x, y), (w, h) in layout:
+        label = label.strip()
+        piece_label = f"{label}\n{int(min(w, h))}x{int(max(w, h))}"
+
+        # Dynamically compute font size
+        max_font = 12
+        min_font = 6
+        font_size = max(min(w, h) // 10, min_font)
+        font_size = min(font_size, max_font)
+
+        ax.add_patch(patches.Rectangle((x, y), w, h, edgecolor='black', facecolor=piece_color))
         ax.text(
             x + w / 2, y + h / 2,
             piece_label,
@@ -159,6 +169,7 @@ def draw_slab_layout(slab: tuple, layout: list):
             fontweight='bold',
             color='black',
             multialignment='center',
+            bbox=dict(facecolor=piece_color, edgecolor='none', alpha=1.0, boxstyle='round,pad=0.1')
         )
 
     ax.set_xlim(0, sw)
@@ -166,6 +177,7 @@ def draw_slab_layout(slab: tuple, layout: list):
     ax.set_aspect('auto')
     ax.axis('off')
     st.pyplot(fig)
+
 
 def generate_pdf_report(results, total_used_area, total_piece_area, used_slabs, leftovers):
     with tempfile.TemporaryDirectory() as tmpdirname:
