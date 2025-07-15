@@ -41,6 +41,9 @@ st.markdown(f"""
 
 st.title("SLAB OPTIMIZATION")
 
+# Performance toggle
+performance_mode = st.sidebar.checkbox("⚡ Performance Mode", value=True)
+
 def can_fit_any_rotation(piece: Tuple[float, float], space: Tuple[float, float]) -> Tuple[bool, Tuple[float, float]]:
     pw, ph = piece
     sw, sh = space
@@ -121,7 +124,8 @@ def nest_pieces_guillotine(required_pieces: List[Tuple[str, float, float]], avai
     for r in range(1, len(available_slabs) + 1):
         combos.extend(itertools.combinations(available_slabs, r))
 
-    with concurrent.futures.ThreadPoolExecutor() as executor:
+    executor_type = concurrent.futures.ProcessPoolExecutor if performance_mode else concurrent.futures.ThreadPoolExecutor
+    with executor_type() as executor:
         futures = [executor.submit(evaluate_combo, combo, required_pieces, required_area) for combo in combos]
         for future in concurrent.futures.as_completed(futures):
             used_area, total_width, result = future.result()
