@@ -169,31 +169,10 @@ def generate_pdf_report(results, total_used_area, total_piece_area, used_slabs, 
         c = canvas.Canvas(pdf_path, pagesize=page_size)
         width, height = page_size
 
-        c.setFont("Helvetica-Bold", 16)
-        c.drawString(2*cm, height - 2*cm, "Slab Optimization Report")
-
-        c.setFont("Helvetica", 12)
-        c.drawString(2*cm, height - 3*cm, f"Total Slab Area Used: {total_used_area / 10000:.2f} m²")
-        c.drawString(2*cm, height - 4*cm, f"Total Piece Area: {total_piece_area / 10000:.2f} m²")
-        c.drawString(2*cm, height - 5*cm, f"Wastage Area: {(total_used_area - total_piece_area) / 10000:.2f} m²")
-        c.drawString(2*cm, height - 6*cm, f"Number of Slabs Used: {len(used_slabs)}")
-
-        if leftovers:
-            c.setFont("Helvetica-Bold", 14)
-            c.drawString(2*cm, height - 7.5*cm, "Unfitted Pieces:")
-            c.setFont("Helvetica", 12)
-            y = height - 8.2*cm
-            for name, pw, ph in leftovers:
-                c.drawString(2.5*cm, y, f"{name if name else 'Unnamed'}: {pw / 100:.2f} x {ph / 100:.2f} m")
-                y -= 0.5*cm
-                if y < 3*cm:
-                    c.showPage()
-                    y = height - 2*cm
-
-        c.showPage()
-
+        # Draw up to two slab layouts per page, stacked vertically
+        slab_figures = []
         for i, (slab, layout) in enumerate(results):
-            fig, ax = plt.subplots(figsize=(11, 6))  # Larger figure size for better visibility
+            fig, ax = plt.subplots(figsize=(15, 9))  # Larger visual export
             sw, sh = slab
             ax.add_patch(patches.Rectangle((0, 0), sw, sh, edgecolor='black', facecolor='#e28a8b'))
 
@@ -201,7 +180,7 @@ def generate_pdf_report(results, total_used_area, total_piece_area, used_slabs, 
                 label = label.strip()
                 label_text = f"{label}\n{int(min(w,h))}x{int(max(w,h))}"
                 ax.add_patch(patches.Rectangle((x, y), w, h, edgecolor='black', facecolor='#e3dec3'))
-                ax.text(x + w / 2, y + h / 2, label_text, ha='center', va='center', fontsize=7)
+                ax.text(x + w / 2, y + h / 2, label_text, ha='center', va='center', fontsize=9)
 
             ax.set_xlim(0, sw)
             ax.set_ylim(0, sh)
@@ -210,22 +189,62 @@ def generate_pdf_report(results, total_used_area, total_piece_area, used_slabs, 
             fig.tight_layout()
 
             img_buf = io.BytesIO()
-            fig.savefig(img_buf, format='png', dpi=300)
+            fig.savefig(img_buf, format='png', dpi=400)
             plt.close(fig)
 
             img_path = os.path.join(tmpdirname, f"layout_{i}.png")
             with open(img_path, 'wb') as f:
                 f.write(img_buf.getvalue())
 
-            c.drawImage(img_path, x=1.5*cm, y=4.5*cm, width=width - 3*cm, height=height - 9*cm, preserveAspectRatio=True, mask='auto')
-            c.setFont("Helvetica", 12)
-            c.drawString(1.5*cm, 3.8*cm, f"Slab {i+1}: {int(sw)} x {int(sh)} cm")
+            # Determine a custom slab name based on first non-empty label
+            slab_name = next((label for label, _, _ in layout if label.strip()), f"Slab #{i+1}")
+            custom_header = f"🪵 {slab_name}  —  Size: {int(sw)} cm × {int(sh)} cm"
+            slab_figures.append((img_path, custom_header))
+
+        for i in range(0, len(slab_figures), 2):
+            y_top = height - 3.5 * cm
+            y_bottom = height / 2 - 4 * cm
+
+            # Draw first slab at top half
+            slab1 = slab_figures[i]
+            c.setFont("Helvetica-Bold", 13)
+            c.drawString(2 * cm, y_top + 0.6 * cm, slab1[1])
+            c.drawImage(
+                slab1[0],
+                x=2 * cm,
+                y=y_top - (height / 2 - 3 * cm),
+                width=width - 4 * cm,
+                height=(height / 2 - 4 * cm),
+                preserveAspectRatio=True,
+                mask='auto'
+            )
+
+            # Draw second slab at bottom half (if exists)
+            if i + 1 < len(slab_figures):
+                slab2 = slab_figures[i + 1]
+                c.setFont("Helvetica-Bold", 13)
+                c.drawString(2 * cm, y_bottom + 0.6 * cm, slab2[1])
+                c.drawImage(
+                    slab2[0],
+                    x=2 * cm,
+                    y=1.5 * cm,
+                    width=width - 4 * cm,
+                    height=(height / 2 - 4 * cm),
+                    preserveAspectRatio=True,
+                    mask='auto'
+                )
+
             c.showPage()
 
         c.save()
 
         with open(pdf_path, "rb") as f:
-            st.sidebar.download_button("📄 Download Full PDF Report", f.read(), file_name="slab_optimization_report.pdf", mime="application/pdf")
+            st.sidebar.download_button(
+                "📄 Download Full PDF Report",
+                f.read(),
+                file_name="slab_optimization_report.pdf",
+                mime="application/pdf"
+            )
 
 with st.expander("📅 Input Dimensions", expanded=True):
     col1, col2 = st.columns(2)
