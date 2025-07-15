@@ -141,7 +141,7 @@ def nest_pieces_guillotine(required_pieces: List[Tuple[str, float, float]], avai
 
     return best_result if best_result else ([], required_pieces, [])
     
-
+# Draw function with slab aspect ratio scaling
 def draw_slab_layout(slab: tuple, layout: list):
     sw, sh = slab
     fig_width = 10
