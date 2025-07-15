@@ -104,7 +104,8 @@ def nest_pieces_guillotine(required_pieces: List[Tuple[str, float, float]], avai
         return try_combo(required_pieces, available_slabs)
 
     best_result = None
-    min_metric = float('inf')
+    best_area = float('inf')
+    best_total_width = float('inf')
     required_area = sum(w * h for _, w, h in required_pieces)
 
     for r in range(1, len(available_slabs) + 1):
@@ -112,9 +113,10 @@ def nest_pieces_guillotine(required_pieces: List[Tuple[str, float, float]], avai
             results, leftovers, used_slabs = try_combo(required_pieces, list(combo))
             if not leftovers:
                 used_area = sum(w * h for w, h in used_slabs)
-                metric = (used_area, sum(w for w, _ in used_slabs))  # Prefer smaller slabs if area equal
-                if metric < min_metric:
-                    min_metric = metric
+                total_width = sum(w for w, _ in used_slabs)
+                if used_area < best_area or (used_area == best_area and total_width < best_total_width):
+                    best_area = used_area
+                    best_total_width = total_width
                     best_result = (results, leftovers, used_slabs)
 
     return best_result if best_result else ([], required_pieces, [])
