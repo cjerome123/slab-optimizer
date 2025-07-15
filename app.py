@@ -158,9 +158,6 @@ def draw_slab_layout(slab: Tuple[float, float], layout: List[Tuple[str, Tuple[fl
     ax.axis('off')
     st.pyplot(fig)
 
-with st.sidebar:
-    smart_combo = st.checkbox("🔀 Enable Smart Combo", value=True)
-
 with st.expander("📅 Input Dimensions", expanded=True):
     col1, col2 = st.columns(2)
     with col1:
@@ -181,8 +178,11 @@ for line in req_input.strip().splitlines():
     required_area_preview += w * h
     piece_count += 1
 
-st.caption(f"🧾 Total Area Required: {required_area_preview:.2f} m²")
-st.caption(f"📦 Total Number of Slabs: {piece_count}")
+with st.sidebar:
+    st.markdown("### 📊 Optimization Summary")
+    st.metric("🧾 Total Area Required", f"{required_area_preview:.2f} m²")
+    st.metric("📦 Pieces Entered", piece_count)
+    smart_combo = st.checkbox("🔀 Enable Smart Combo", value=True)
 
 if st.button("📐 Nest Slabs"):
     try:
