@@ -100,22 +100,55 @@ def try_combo(required_pieces: List[Tuple[str, float, float]], combo: List[Tuple
     return results, pieces, used_slabs
 
 def nest_pieces_guillotine(required_pieces: List[Tuple[str, float, float]], available_slabs: List[Tuple[float, float]], use_smart_combo: bool = True):
+    def sort_slabs(slabs):
+        return sorted(slabs, key=lambda x: x[0] * x[1])  # smaller slabs first
+
+    required_area = sum(w * h for _, w, h in required_pieces)
+
     if not use_smart_combo:
         return try_combo(required_pieces, available_slabs)
 
+    # Step 1: Greedy fit: Try placing pieces using smallest reusable slabs
+    best_results = []
+    used_slabs = []
+    pieces = sorted(required_pieces, key=lambda x: x[1] * x[2], reverse=True)
+    sorted_slabs = sort_slabs(available_slabs)
+
+    still_needed = []
+
+    for piece in pieces:
+        placed = False
+        for slab in sorted_slabs:
+            result, leftover, used = try_combo([piece], [slab])
+            if not leftover:
+                best_results.extend(result)
+                used_slabs.extend(used)
+                placed = True
+                break
+        if not placed:
+            still_needed.append(piece)
+
+    if not still_needed:
+        return best_results, [], used_slabs
+
+    # Step 2: Try combinations with slab reuse (fallback)
+    from itertools import combinations
+
     best_result = None
     min_wastage = float('inf')
-    required_area = sum(w * h for _, w, h in required_pieces)
 
-    for r in range(1, len(available_slabs) + 1):
-        for combo in itertools.combinations(available_slabs, r):
-            results, leftovers, used_slabs = try_combo(required_pieces, list(combo))
+    for r in range(1, min(len(available_slabs), 5) + 1):  # cap at 5-slab combinations
+        for combo in combinations(available_slabs, r):
+            combo_list = list(combo) * 5  # simulate slab reuse
+            results, leftovers, used = try_combo(required_pieces, combo_list)
             if not leftovers:
-                used_area = sum(w * h for w, h in used_slabs)
+                used_area = sum(w * h for w, h in used)
                 wastage = used_area - required_area
                 if wastage < min_wastage:
                     min_wastage = wastage
-                    best_result = (results, leftovers, used_slabs)
+                    best_result = (results, leftovers, used)
+        if best_result:
+            break  # early exit when first working combo is found
 
     return best_result if best_result else ([], required_pieces, [])
 
