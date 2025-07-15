@@ -146,7 +146,7 @@ def nest_pieces_guillotine(required_pieces: List[Tuple[str, float, float]], avai
 def draw_slab_layout(slab: tuple, layout: list):
     sw, sh = slab
     fig_width = 10
-    fig_height = fig_width * (sh / sw)
+    fig_height = max(5, fig_width * (sh / sw))  # Ensure minimum figure height for thin slabs
     fig, ax = plt.subplots(figsize=(fig_width, fig_height))
     ax.add_patch(patches.Rectangle((0, 0), sw, sh, edgecolor='black', facecolor=slab_color))
 
@@ -174,10 +174,9 @@ def draw_slab_layout(slab: tuple, layout: list):
 
     ax.set_xlim(0, sw)
     ax.set_ylim(0, sh)
-    ax.set_aspect('auto')
+    ax.set_aspect('equal')  # Maintain proper aspect ratio for positioning
     ax.axis('off')
     st.pyplot(fig)
-
 
 def generate_pdf_report(results, total_used_area, total_piece_area, used_slabs, leftovers):
     with tempfile.TemporaryDirectory() as tmpdirname:
