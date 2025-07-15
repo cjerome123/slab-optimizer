@@ -164,6 +164,22 @@ def draw_slab_layout(slab: tuple, layout: list):
     ax.axis('off')
     st.pyplot(fig)
 
+    # Save to buffer BEFORE displaying
+    buf = io.BytesIO()
+    fig.savefig(buf, format="png")
+    buf.seek(0)
+
+    # Show the figure
+    st.pyplot(fig)
+
+    # Export download button
+    st.download_button(
+        label="📤 Download Layout as PNG",
+        data=buf.getvalue(),
+        file_name="slab_layout.png",
+        mime="image/png"
+    )
+
 with st.expander("📅 Input Dimensions", expanded=True):
     col1, col2 = st.columns(2)
     with col1:
@@ -236,14 +252,3 @@ if st.button("⚙️ Nest Slabs"):
             st.code("\n".join([f"{name if name else 'Unnamed'}: {pw / 100:.2f} x {ph / 100:.2f} m" for name, pw, ph in leftovers]), language="text")
     except Exception as e:
         st.error(f"❌ Error: {str(e)}")
-
-    # Export as PNG
-    buf = io.BytesIO()
-    fig.savefig(buf, format="png")
-    st.download_button(
-        label="📤 Download Layout as PNG",
-        data=buf.getvalue(),
-        file_name="slab_layout.png",
-        mime="image/png"
-    )
-
