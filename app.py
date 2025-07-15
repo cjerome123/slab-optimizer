@@ -220,8 +220,8 @@ def generate_pdf_report(results, total_used_area, total_piece_area, used_slabs, 
             )
 
             # Draw slab label
-            c.setFont("Helvetica", 10)
-            c.drawString(1.5 * cm, slab_position_y + slab_height - 0.5 * cm, f"Slab {i+1}: {int(sw)} x {int(sh)} cm")
+            c.setFont("Helvetica-Bold", 10)
+            c.drawString(1.6 * cm, slab_position_y + slab_height - 1.2 * cm, f"Slab {i+1}: {int(sw)} x {int(sh)} cm")
 
             layouts_on_page += 1
 
