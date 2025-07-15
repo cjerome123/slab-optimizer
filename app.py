@@ -193,7 +193,7 @@ def generate_pdf_report(results, total_used_area, total_piece_area, used_slabs, 
                     label = label.strip()
                     label_text = f"{label}\n{int(min(w,h))}x{int(max(w,h))}"
                     max_font = 12
-                    min_font = 6
+                    min_font = 10
                     font_size = max(min(w, h) // 10, min_font)
                     font_size = min(font_size, max_font)
 
@@ -258,7 +258,7 @@ def generate_pdf_report(results, total_used_area, total_piece_area, used_slabs, 
                         label = label.strip()
                         label_text = f"{label}\n{int(min(w,h))}x{int(max(w,h))}"
                         max_font = 12
-                        min_font = 6
+                        min_font = 10
                         font_size = max(min(w, h) // 10, min_font)
                         font_size = min(font_size, max_font)
 
