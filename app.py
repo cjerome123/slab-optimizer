@@ -184,16 +184,33 @@ def generate_pdf_report(results, total_used_area, total_piece_area, used_slabs, 
                 slab, layout = slabs_on_this_page[0]
                 sw, sh = slab
 
-                # Create layout image
                 fig_width = 12
                 fig_height = fig_width * (sh / sw)
                 fig, ax = plt.subplots(figsize=(fig_width, fig_height))
                 ax.add_patch(patches.Rectangle((0, 0), sw, sh, edgecolor='black', facecolor=slab_color))
+
                 for label, (x, y), (w, h) in layout:
                     label = label.strip()
                     label_text = f"{label}\n{int(min(w,h))}x{int(max(w,h))}"
-                    ax.add_patch(patches.Rectangle((x, y), w, h, edgecolor='black', facecolor=piece_color))
-                    ax.text(x + w / 2, y + h / 2, label_text, ha='center', va='center', fontsize=12, fontweight='bold', color='black')
+                    max_font = 12
+                    min_font = 6
+                    font_size = max(min(w, h) // 10, min_font)
+                    font_size = min(font_size, max_font)
+
+                    if w > 20 and h > 10:
+                        ax.add_patch(patches.Rectangle((x, y), w, h, edgecolor='black', facecolor=piece_color))
+                        ax.text(
+                            x + w / 2,
+                            y + h / 2,
+                            label_text,
+                            ha='center',
+                            va='center',
+                            fontsize=font_size,
+                            fontweight='bold',
+                            color='black',
+                            multialignment='center',
+                            bbox=dict(facecolor='white', edgecolor='none', alpha=0.8, boxstyle='round,pad=0.1')
+                        )
 
                 ax.set_xlim(0, sw)
                 ax.set_ylim(0, sh)
@@ -209,10 +226,8 @@ def generate_pdf_report(results, total_used_area, total_piece_area, used_slabs, 
                 with open(img_path, 'wb') as f:
                     f.write(img_buf.getvalue())
 
-                # Center vertically
                 centered_y = (height - slab_img_height) / 2
 
-                # Draw Image
                 c.drawImage(
                     img_path,
                     x=margin,
@@ -223,8 +238,7 @@ def generate_pdf_report(results, total_used_area, total_piece_area, used_slabs, 
                     mask='auto'
                 )
 
-                # Draw Label - Top right above image
-                c.setFont("Helvetica-Bold", 10)
+                c.setFont("Helvetica-Bold", 14)
                 label_text = f"Slab {slab_index+1}: {int(sw)} x {int(sh)} cm"
                 c.drawRightString(width - margin, centered_y + slab_img_height + 0.5 * cm, label_text)
 
@@ -239,11 +253,29 @@ def generate_pdf_report(results, total_used_area, total_piece_area, used_slabs, 
                     fig_height = fig_width * (sh / sw)
                     fig, ax = plt.subplots(figsize=(fig_width, fig_height))
                     ax.add_patch(patches.Rectangle((0, 0), sw, sh, edgecolor='black', facecolor=slab_color))
+
                     for label, (x, y), (w, h) in layout:
                         label = label.strip()
                         label_text = f"{label}\n{int(min(w,h))}x{int(max(w,h))}"
-                        ax.add_patch(patches.Rectangle((x, y), w, h, edgecolor='black', facecolor=piece_color))
-                        ax.text(x + w / 2, y + h / 2, label_text, ha='center', va='center', fontsize=12, fontweight='bold', color='black')
+                        max_font = 12
+                        min_font = 6
+                        font_size = max(min(w, h) // 10, min_font)
+                        font_size = min(font_size, max_font)
+
+                        if w > 20 and h > 10:
+                            ax.add_patch(patches.Rectangle((x, y), w, h, edgecolor='black', facecolor=piece_color))
+                            ax.text(
+                                x + w / 2,
+                                y + h / 2,
+                                label_text,
+                                ha='center',
+                                va='center',
+                                fontsize=font_size,
+                                fontweight='bold',
+                                color='black',
+                                multialignment='center',
+                                bbox=dict(facecolor='white', edgecolor='none', alpha=0.8, boxstyle='round,pad=0.1')
+                            )
 
                     ax.set_xlim(0, sw)
                     ax.set_ylim(0, sh)
@@ -259,10 +291,8 @@ def generate_pdf_report(results, total_used_area, total_piece_area, used_slabs, 
                     with open(img_path, 'wb') as f:
                         f.write(img_buf.getvalue())
 
-                    # Slab vertical position (top or bottom half)
                     position_y = height - margin - ((j + 1) * slab_img_height)
 
-                    # Draw Image
                     c.drawImage(
                         img_path,
                         x=margin,
@@ -273,8 +303,7 @@ def generate_pdf_report(results, total_used_area, total_piece_area, used_slabs, 
                         mask='auto'
                     )
 
-                    # Draw Label - Top right above image
-                    c.setFont("Helvetica-Bold", 10)
+                    c.setFont("Helvetica-Bold", 14)
                     label_text = f"Slab {slab_index+1}: {int(sw)} x {int(sh)} cm"
                     c.drawRightString(width - margin, position_y + slab_img_height + 0.5 * cm, label_text)
 
@@ -284,7 +313,6 @@ def generate_pdf_report(results, total_used_area, total_piece_area, used_slabs, 
 
         c.save()
 
-        # Show download
         with open(pdf_path, "rb") as f:
             st.sidebar.download_button("📄 Download Full PDF Report", f.read(), file_name="slab_optimization_report.pdf", mime="application/pdf")
 
