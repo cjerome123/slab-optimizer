@@ -5,6 +5,7 @@ from typing import List, Tuple
 import itertools
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from itertools import combinations
+import io
 
 # -----------------------------
 # Theme Color Configuration
@@ -235,3 +236,14 @@ if st.button("⚙️ Nest Slabs"):
             st.code("\n".join([f"{name if name else 'Unnamed'}: {pw / 100:.2f} x {ph / 100:.2f} m" for name, pw, ph in leftovers]), language="text")
     except Exception as e:
         st.error(f"❌ Error: {str(e)}")
+
+    # Export as PNG
+    buf = io.BytesIO()
+    fig.savefig(buf, format="png")
+    st.download_button(
+        label="📤 Download Layout as PNG",
+        data=buf.getvalue(),
+        file_name="slab_layout.png",
+        mime="image/png"
+    )
+
