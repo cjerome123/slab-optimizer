@@ -333,7 +333,7 @@ def generate_pdf_report(results, total_used_area, total_piece_area, used_slabs, 
         c.save()
 
         with open(pdf_path, "rb") as f:
-            st.sidebar.download_button("📄 Download Full PDF Report", f.read(), file_name="slab_optimization_report.pdf", mime="application/pdf")
+            st.sidebar.download_button("📄 Download PDF", f.read(), file_name="slab_optimization_report.pdf", mime="application/pdf")
 
 with st.expander("📅 Input Dimensions", expanded=True):
     col1, col2 = st.columns(2)
