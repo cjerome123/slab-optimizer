@@ -145,7 +145,7 @@ def nest_pieces_guillotine(required_pieces: List[Tuple[str, float, float]], avai
 def draw_slab_layout(slab: Tuple[float, float], layout: List[Tuple[str, Tuple[float, float], Tuple[float, float]]] ):
     fig, ax = plt.subplots(figsize=(12, 5))
     sw, sh = slab
-    ax.add_patch(patches.Rectangle((0, 0), sw, sh, edgecolor='black', facecolor=slab_color))
+    ax.add_patch(patches.Rectangle((0, 0), sw, sh, edgecolor='black', facecolor=slab_color, linewidth=0.5, antialiased=True))
     for idx, (label, (x, y), (w, h)) in enumerate(layout):
         label = label.strip()
         label_text = f"{int(min(w,h))}x{int(max(w,h))}" if label == "" else f"{label}\n{int(min(w,h))}x{int(max(w,h))}"
@@ -181,7 +181,7 @@ for line in req_input.strip().splitlines():
 with st.sidebar:
     st.markdown("### 📊 Summary")
     st.metric("🧾 Total Area Required", f"{required_area_preview:.2f} m²")
-    st.metric("📦 Pieces Entered", piece_count)
+    st.metric("📦 Number of Required Slabs", piece_count)
     smart_combo = st.checkbox("🔀 Smart Combo", value=True)
 
 if st.button("📐 Nest Slabs"):
