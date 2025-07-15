@@ -157,6 +157,7 @@ def draw_slab_layout(slab: Tuple[float, float], layout: List[Tuple[str, Tuple[fl
     for idx, (label, (x, y), (w, h)) in enumerate(layout):
         label = label.strip()
         label_text = f"{int(min(w,h))}x{int(max(w,h))}" if label == "" else f"{label}\n{int(min(w,h))}x{int(max(w,h))}"
+        color = label_to_color(label)
         ax.add_patch(patches.Rectangle((x, y), w, h, edgecolor='black', facecolor=piece_color))
         ax.text(x + w / 2, y + h / 2, label_text,
                 ha='center', va='center', fontsize=10, color='black')
