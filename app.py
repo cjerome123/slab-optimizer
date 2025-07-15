@@ -9,7 +9,7 @@ import pandas as pd
 import tempfile
 import io
 import os
-from reportlab.lib.pagesizes import A4
+from reportlab.lib.pagesizes import landscape
 from reportlab.pdfgen import canvas
 from reportlab.lib.units import cm
 
@@ -165,9 +165,11 @@ def draw_slab_layout(slab: tuple, layout: list):
 def generate_pdf_report(results, total_used_area, total_piece_area, used_slabs, leftovers):
     with tempfile.TemporaryDirectory() as tmpdirname:
         pdf_path = os.path.join(tmpdirname, "slab_report.pdf")
-        c = canvas.Canvas(pdf_path, pagesize=A4)
-        width, height = A4
+        page_size = landscape(A4)
+        c = canvas.Canvas(pdf_path, pagesize=page_size)
+        width, height = page_size  # now in landscape
 
+        # Summary Page
         c.setFont("Helvetica-Bold", 16)
         c.drawString(2*cm, height - 2*cm, "Slab Optimization Report")
 
@@ -191,9 +193,14 @@ def generate_pdf_report(results, total_used_area, total_piece_area, used_slabs, 
 
         c.showPage()
 
+        # Slab Pages (one per layout)
         for i, (slab, layout) in enumerate(results):
-            fig, ax = plt.subplots(figsize=(8, 5))
             sw, sh = slab
+
+            # Maximize visual size while preserving aspect ratio
+            fig_width = 12  # in inches (landscape)
+            fig_height = fig_width * (sh / sw)
+            fig, ax = plt.subplots(figsize=(fig_width, fig_height))
             ax.add_patch(patches.Rectangle((0, 0), sw, sh, edgecolor='black', facecolor=slab_color))
 
             for label, (x, y), (w, h) in layout:
@@ -209,20 +216,26 @@ def generate_pdf_report(results, total_used_area, total_piece_area, used_slabs, 
             fig.tight_layout()
 
             img_buf = io.BytesIO()
-            fig.savefig(img_buf, format='png', dpi=150)
+            fig.savefig(img_buf, format='png', dpi=300, bbox_inches='tight', pad_inches=0)
             plt.close(fig)
 
             img_path = os.path.join(tmpdirname, f"layout_{i}.png")
             with open(img_path, 'wb') as f:
                 f.write(img_buf.getvalue())
 
-            c.drawImage(img_path, x=2*cm, y=6*cm, width=width - 4*cm, preserveAspectRatio=True, mask='auto')
+            # Draw slab image as large as possible
+            max_img_width = width - 3*cm
+            max_img_height = height - 4*cm
+            c.drawImage(img_path, x=1.5*cm, y=2*cm, width=max_img_width, height=max_img_height, preserveAspectRatio=True, mask='auto')
+
+            # Label
             c.setFont("Helvetica", 12)
-            c.drawString(2*cm, 5.5*cm, f"Slab {i+1}: {int(sw)} x {int(sh)} cm")
+            c.drawString(1.5*cm, height - 1.5*cm, f"Slab {i+1}: {int(sw)} x {int(sh)} cm")
             c.showPage()
 
         c.save()
 
+        # Show download button
         with open(pdf_path, "rb") as f:
             st.sidebar.download_button("📄 Download Full PDF Report", f.read(), file_name="slab_optimization_report.pdf", mime="application/pdf")
 
