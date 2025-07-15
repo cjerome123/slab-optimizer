@@ -194,12 +194,12 @@ if st.button("📐 Nest Slabs"):
             for (_, _, (w, h)) in layout:
                 total_piece_area += w * h
 
-        with st.sidebar:
-    st.markdown("---")
-    st.markdown("### 📊 Summary")
-    st.markdown(f"**Slabs Used:** {len(used_slabs)}")
-    st.markdown(f"**Total Slab Area:** {total_used_area / 10000:.2f} m²")
-    st.markdown(f"**Wastage Area:** {(total_used_area - total_piece_area) / 10000:.2f} m²")
+     with st.sidebar:
+        st.markdown("---")
+        st.markdown("### 📊 Summary")
+        st.markdown(f"**Slabs Used:** {len(used_slabs)}")
+        st.markdown(f"**Total Slab Area:** {total_used_area / 10000:.2f} m²")
+        st.markdown(f"**Wastage Area:** {(total_used_area - total_piece_area) / 10000:.2f} m²")
 
         if leftovers:
             st.warning("⚠️ These pieces did not fit in any slab:")
