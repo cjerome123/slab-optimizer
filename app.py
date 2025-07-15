@@ -179,8 +179,8 @@ for line in req_input.strip().splitlines():
     piece_count += 1
 
 with st.sidebar:
-    st.markdown("### 📊 Summary")
     smart_combo = st.checkbox("💡 Smart Combo", value=True)
+    st.markdown("### 📊 Summary")
     st.metric("Total Area Required", f"{required_area_preview:.2f} m²")
     st.metric("Number of Required Slabs", piece_count)
 
