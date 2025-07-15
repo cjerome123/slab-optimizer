@@ -188,7 +188,7 @@ if st.button("📐 Nest Slabs"):
         st.subheader("🧹 Slab Layouts")
         for i, (slab, layout) in enumerate(results):
             label = f"{int(slab[0])} x {int(slab[1])} cm"
-            if st.checkbox(f"Show Slab Layout: {label}", key=f"slab_{i}"):
+            with st.expander(f"Slab {i+1}: {label}", expanded=False):
                 draw_slab_layout(slab, layout)
             total_used_area += slab[0] * slab[1]
             for (_, _, (w, h)) in layout:
