@@ -167,71 +167,122 @@ def generate_pdf_report(results, total_used_area, total_piece_area, used_slabs, 
         pdf_path = os.path.join(tmpdirname, "slab_report.pdf")
         page_size = landscape(letter)
         c = canvas.Canvas(pdf_path, pagesize=page_size)
-        width, height = page_size  # 792 x 612 points in landscape Letter
+        width, height = page_size
 
         slabs_per_page = 2
-        layouts_on_page = 0
-        vertical_margin = 1.5 * cm
-        usable_height = height - 2 * vertical_margin
-        slab_height = usable_height / slabs_per_page
-        slab_width = width - 3 * cm  # allow side margins
+        margin = 1.5 * cm
+        usable_width = width - 2 * margin
+        usable_height = height - 2 * margin
+        slab_img_height = usable_height / slabs_per_page
 
-        for i, (slab, layout) in enumerate(results):
-            sw, sh = slab
+        i = 0
+        while i < len(results):
+            slabs_on_this_page = results[i:i+slabs_per_page]
 
-            # Matplotlib figure (scale to slab proportions, but large size)
-            fig_width = 12
-            fig_height = fig_width * (sh / sw)
-            fig, ax = plt.subplots(figsize=(fig_width, fig_height))
-            ax.add_patch(patches.Rectangle((0, 0), sw, sh, edgecolor='black', facecolor=slab_color))
+            if len(slabs_on_this_page) == 1:
+                slab_index = i
+                slab, layout = slabs_on_this_page[0]
+                sw, sh = slab
 
-            for label, (x, y), (w, h) in layout:
-                label = label.strip()
-                label_text = f"{label}\n{int(min(w,h))}x{int(max(w,h))}"
-                ax.add_patch(patches.Rectangle((x, y), w, h, edgecolor='black', facecolor=piece_color))
-                ax.text(x + w / 2, y + h / 2, label_text, ha='center', va='center', fontsize=6)
+                # Create layout image
+                fig_width = 12
+                fig_height = fig_width * (sh / sw)
+                fig, ax = plt.subplots(figsize=(fig_width, fig_height))
+                ax.add_patch(patches.Rectangle((0, 0), sw, sh, edgecolor='black', facecolor=slab_color))
+                for label, (x, y), (w, h) in layout:
+                    label = label.strip()
+                    label_text = f"{label}\n{int(min(w,h))}x{int(max(w,h))}"
+                    ax.add_patch(patches.Rectangle((x, y), w, h, edgecolor='black', facecolor=piece_color))
+                    ax.text(x + w / 2, y + h / 2, label_text, ha='center', va='center', fontsize=6)
+                ax.set_xlim(0, sw)
+                ax.set_ylim(0, sh)
+                ax.axis('off')
+                ax.set_aspect('equal')
+                fig.tight_layout()
 
-            ax.set_xlim(0, sw)
-            ax.set_ylim(0, sh)
-            ax.axis('off')
-            ax.set_aspect('equal')
-            fig.tight_layout()
+                img_buf = io.BytesIO()
+                fig.savefig(img_buf, format='png', dpi=300, bbox_inches='tight', pad_inches=0)
+                plt.close(fig)
 
-            img_buf = io.BytesIO()
-            fig.savefig(img_buf, format='png', dpi=300, bbox_inches='tight', pad_inches=0)
-            plt.close(fig)
+                img_path = os.path.join(tmpdirname, f"layout_{i}.png")
+                with open(img_path, 'wb') as f:
+                    f.write(img_buf.getvalue())
 
-            img_path = os.path.join(tmpdirname, f"layout_{i}.png")
-            with open(img_path, 'wb') as f:
-                f.write(img_buf.getvalue())
+                # Center vertically
+                centered_y = (height - slab_img_height) / 2
 
-            # Calculate position for slab in current page
-            slab_position_y = height - vertical_margin - (layouts_on_page + 1) * slab_height
+                # Draw Image
+                c.drawImage(
+                    img_path,
+                    x=margin,
+                    y=centered_y,
+                    width=usable_width,
+                    height=slab_img_height,
+                    preserveAspectRatio=True,
+                    mask='auto'
+                )
 
-            # Draw slab image
-            c.drawImage(
-                img_path,
-                x=1.5 * cm,
-                y=slab_position_y,
-                width=slab_width,
-                height=slab_height,
-                preserveAspectRatio=True,
-                mask='auto'
-            )
+                # Draw Label - Top right above image
+                c.setFont("Helvetica-Bold", 10)
+                label_text = f"Slab {slab_index+1}: {int(sw)} x {int(sh)} cm"
+                c.drawRightString(width - margin, centered_y + slab_img_height + 0.5 * cm, label_text)
 
-            # Draw slab label
-            c.setFont("Helvetica-Bold", 10)
-            c.drawString(1.6 * cm, slab_position_y + slab_height - 1.2 * cm, f"Slab {i+1}: {int(sw)} x {int(sh)} cm")
-
-            layouts_on_page += 1
-
-            if layouts_on_page == slabs_per_page or i == len(results) - 1:
                 c.showPage()
-                layouts_on_page = 0
+
+            else:
+                for j, (slab, layout) in enumerate(slabs_on_this_page):
+                    slab_index = i + j
+                    sw, sh = slab
+
+                    fig_width = 12
+                    fig_height = fig_width * (sh / sw)
+                    fig, ax = plt.subplots(figsize=(fig_width, fig_height))
+                    ax.add_patch(patches.Rectangle((0, 0), sw, sh, edgecolor='black', facecolor=slab_color))
+                    for label, (x, y), (w, h) in layout:
+                        label = label.strip()
+                        label_text = f"{label}\n{int(min(w,h))}x{int(max(w,h))}"
+                        ax.add_patch(patches.Rectangle((x, y), w, h, edgecolor='black', facecolor=piece_color))
+                        ax.text(x + w / 2, y + h / 2, label_text, ha='center', va='center', fontsize=6)
+                    ax.set_xlim(0, sw)
+                    ax.set_ylim(0, sh)
+                    ax.axis('off')
+                    ax.set_aspect('equal')
+                    fig.tight_layout()
+
+                    img_buf = io.BytesIO()
+                    fig.savefig(img_buf, format='png', dpi=300, bbox_inches='tight', pad_inches=0)
+                    plt.close(fig)
+
+                    img_path = os.path.join(tmpdirname, f"layout_{slab_index}.png")
+                    with open(img_path, 'wb') as f:
+                        f.write(img_buf.getvalue())
+
+                    # Slab vertical position (top or bottom half)
+                    position_y = height - margin - ((j + 1) * slab_img_height)
+
+                    # Draw Image
+                    c.drawImage(
+                        img_path,
+                        x=margin,
+                        y=position_y,
+                        width=usable_width,
+                        height=slab_img_height,
+                        preserveAspectRatio=True,
+                        mask='auto'
+                    )
+
+                    # Draw Label - Top right above image
+                    c.setFont("Helvetica-Bold", 10)
+                    label_text = f"Slab {slab_index+1}: {int(sw)} x {int(sh)} cm"
+                    c.drawRightString(width - margin, position_y + slab_img_height + 0.5 * cm, label_text)
+
+                c.showPage()
+
+            i += slabs_per_page
 
         c.save()
 
-        # Provide download link
+        # Show download
         with open(pdf_path, "rb") as f:
             st.sidebar.download_button("📄 Download Full PDF Report", f.read(), file_name="slab_optimization_report.pdf", mime="application/pdf")
 
