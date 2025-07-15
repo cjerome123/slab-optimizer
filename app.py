@@ -209,7 +209,7 @@ def generate_pdf_report(results, total_used_area, total_piece_area, used_slabs, 
                             fontweight='bold',
                             color='black',
                             multialignment='center',
-                            bbox=dict(facecolor='white', edgecolor='none', alpha=0.8, boxstyle='round,pad=0.1')
+                            bbox=dict(facecolor=piece_color, edgecolor='none', alpha=1.0, boxstyle='round,pad=0.1')
                         )
 
                 ax.set_xlim(0, sw)
@@ -274,7 +274,7 @@ def generate_pdf_report(results, total_used_area, total_piece_area, used_slabs, 
                                 fontweight='bold',
                                 color='black',
                                 multialignment='center',
-                                bbox=dict(facecolor='white', edgecolor='none', alpha=0.8, boxstyle='round,pad=0.1')
+                                bbox=dict(facecolor=piece_color, edgecolor='none', alpha=1.0, boxstyle='round,pad=0.1')
                             )
 
                     ax.set_xlim(0, sw)
