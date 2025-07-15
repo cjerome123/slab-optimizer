@@ -5,10 +5,13 @@ from typing import List, Tuple
 import itertools
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from itertools import combinations
-
-# -----------------------------
-# Theme Color Configuration
-# -----------------------------
+import pandas as pd
+import tempfile
+import io
+import os
+from reportlab.lib.pagesizes import A4
+from reportlab.pdfgen import canvas
+from reportlab.lib.units import cm
 
 st.set_page_config(layout="wide")
 
@@ -103,10 +106,10 @@ def try_combo(required_pieces: List[Tuple[str, float, float]], combo: List[Tuple
 
 def nest_pieces_guillotine(required_pieces: List[Tuple[str, float, float]], available_slabs: List[Tuple[float, float]], use_smart_combo: bool = True):
     def sort_slabs(slabs):
-        return sorted(slabs, key=lambda x: x[0] * x[1])  # prioritize smaller slabs
+        return sorted(slabs, key=lambda x: x[0] * x[1])
 
     def try_combo_wrapped(combo):
-        combo_list = list(combo) * 5  # simulate reuse
+        combo_list = list(combo) * 5
         results, leftovers, used = try_combo(required_pieces, combo_list)
         if not leftovers:
             used_area = sum(w * h for w, h in used)
@@ -123,14 +126,13 @@ def nest_pieces_guillotine(required_pieces: List[Tuple[str, float, float]], avai
     best_result = None
     min_wastage = float('inf')
 
-    # Smart Combo Phase — parallel combo filtering and evaluation
     with ThreadPoolExecutor() as executor:
         futures = []
         for r in range(1, min(len(sorted_slabs), 5) + 1):
             for combo in combinations(sorted_slabs, r):
                 slab_area = sum(w * h for w, h in combo)
                 if slab_area < required_area:
-                    continue  # filter inefficient combos
+                    continue
                 futures.append(executor.submit(try_combo_wrapped, combo))
 
         for future in as_completed(futures):
@@ -140,28 +142,89 @@ def nest_pieces_guillotine(required_pieces: List[Tuple[str, float, float]], avai
                 best_result = result
 
     return best_result if best_result else ([], required_pieces, [])
-    
-# Draw function with slab aspect ratio scaling
+
 def draw_slab_layout(slab: tuple, layout: list):
     sw, sh = slab
     fig_width = 10
     fig_height = fig_width * (sh / sw)
     fig, ax = plt.subplots(figsize=(fig_width, fig_height))
+    ax.add_patch(patches.Rectangle((0, 0), sw, sh, edgecolor='black', facecolor=slab_color))
 
-    ax.add_patch(patches.Rectangle((0, 0), sw, sh, edgecolor='black', facecolor="#e28a8b", linewidth=0.5, antialiased=True))
-
-    for idx, (label, (x, y), (w, h)) in enumerate(layout):
+    for label, (x, y), (w, h) in layout:
         label = label.strip()
-        label_text = f"{int(min(w,h))}x{int(max(w,h))}" if label == "" else f"{label}\n{int(min(w,h))}x{int(max(w,h))}"
-        ax.add_patch(patches.Rectangle((x, y), w, h, edgecolor='black', facecolor="#e3dec3"))
-        ax.text(x + w / 2, y + h / 2, label_text,
-                ha='center', va='center', fontsize=10, color='black')
+        label_text = f"{label}\n{int(min(w,h))}x{int(max(w,h))}"
+        ax.add_patch(patches.Rectangle((x, y), w, h, edgecolor='black', facecolor=piece_color))
+        ax.text(x + w / 2, y + h / 2, label_text, ha='center', va='center', fontsize=10, color='black')
 
     ax.set_xlim(0, sw)
     ax.set_ylim(0, sh)
     ax.set_aspect('auto')
     ax.axis('off')
     st.pyplot(fig)
+
+def generate_pdf_report(results, total_used_area, total_piece_area, used_slabs, leftovers):
+    with tempfile.TemporaryDirectory() as tmpdirname:
+        pdf_path = os.path.join(tmpdirname, "slab_report.pdf")
+        c = canvas.Canvas(pdf_path, pagesize=A4)
+        width, height = A4
+
+        c.setFont("Helvetica-Bold", 16)
+        c.drawString(2*cm, height - 2*cm, "Slab Optimization Report")
+
+        c.setFont("Helvetica", 12)
+        c.drawString(2*cm, height - 3*cm, f"Total Slab Area Used: {total_used_area / 10000:.2f} m²")
+        c.drawString(2*cm, height - 4*cm, f"Total Piece Area: {total_piece_area / 10000:.2f} m²")
+        c.drawString(2*cm, height - 5*cm, f"Wastage Area: {(total_used_area - total_piece_area) / 10000:.2f} m²")
+        c.drawString(2*cm, height - 6*cm, f"Number of Slabs Used: {len(used_slabs)}")
+
+        if leftovers:
+            c.setFont("Helvetica-Bold", 14)
+            c.drawString(2*cm, height - 7.5*cm, "Unfitted Pieces:")
+            c.setFont("Helvetica", 12)
+            y = height - 8.2*cm
+            for name, pw, ph in leftovers:
+                c.drawString(2.5*cm, y, f"{name if name else 'Unnamed'}: {pw / 100:.2f} x {ph / 100:.2f} m")
+                y -= 0.5*cm
+                if y < 3*cm:
+                    c.showPage()
+                    y = height - 2*cm
+
+        c.showPage()
+
+        for i, (slab, layout) in enumerate(results):
+            fig, ax = plt.subplots(figsize=(8, 5))
+            sw, sh = slab
+            ax.add_patch(patches.Rectangle((0, 0), sw, sh, edgecolor='black', facecolor=slab_color))
+
+            for label, (x, y), (w, h) in layout:
+                label = label.strip()
+                label_text = f"{label}\n{int(min(w,h))}x{int(max(w,h))}"
+                ax.add_patch(patches.Rectangle((x, y), w, h, edgecolor='black', facecolor=piece_color))
+                ax.text(x + w / 2, y + h / 2, label_text, ha='center', va='center', fontsize=6)
+
+            ax.set_xlim(0, sw)
+            ax.set_ylim(0, sh)
+            ax.axis('off')
+            ax.set_aspect('equal')
+            fig.tight_layout()
+
+            img_buf = io.BytesIO()
+            fig.savefig(img_buf, format='png', dpi=150)
+            plt.close(fig)
+
+            img_path = os.path.join(tmpdirname, f"layout_{i}.png")
+            with open(img_path, 'wb') as f:
+                f.write(img_buf.getvalue())
+
+            c.drawImage(img_path, x=2*cm, y=6*cm, width=width - 4*cm, preserveAspectRatio=True, mask='auto')
+            c.setFont("Helvetica", 12)
+            c.drawString(2*cm, 5.5*cm, f"Slab {i+1}: {int(sw)} x {int(sh)} cm")
+            c.showPage()
+
+        c.save()
+
+        with open(pdf_path, "rb") as f:
+            st.download_button("📄 Download Full Report (PDF)", f.read(), file_name="slab_optimization_report.pdf", mime="application/pdf")
 
 with st.expander("📅 Input Dimensions", expanded=True):
     col1, col2 = st.columns(2)
@@ -235,84 +298,3 @@ if st.button("⚙️ Nest Slabs"):
             st.code("\n".join([f"{name if name else 'Unnamed'}: {pw / 100:.2f} x {ph / 100:.2f} m" for name, pw, ph in leftovers]), language="text")
     except Exception as e:
         st.error(f"❌ Error: {str(e)}")
-
-from reportlab.lib.pagesizes import A4
-from reportlab.pdfgen import canvas
-from reportlab.lib.units import cm
-from reportlab.platypus import Image as RLImage
-import tempfile
-import io
-import os
-
-def generate_pdf_report(results, total_used_area, total_piece_area, used_slabs, leftovers):
-    with tempfile.TemporaryDirectory() as tmpdirname:
-        # Create a PDF file
-        pdf_path = os.path.join(tmpdirname, "slab_report.pdf")
-        c = canvas.Canvas(pdf_path, pagesize=A4)
-        width, height = A4
-
-        # --- Add Summary ---
-        c.setFont("Helvetica-Bold", 16)
-        c.drawString(2*cm, height - 2*cm, "Slab Optimization Report")
-
-        c.setFont("Helvetica", 12)
-        c.drawString(2*cm, height - 3*cm, f"Total Slab Area Used: {total_used_area / 10000:.2f} m²")
-        c.drawString(2*cm, height - 4*cm, f"Total Piece Area: {total_piece_area / 10000:.2f} m²")
-        c.drawString(2*cm, height - 5*cm, f"Wastage Area: {(total_used_area - total_piece_area) / 10000:.2f} m²")
-        c.drawString(2*cm, height - 6*cm, f"Number of Slabs Used: {len(used_slabs)}")
-
-        if leftovers:
-            c.setFont("Helvetica-Bold", 14)
-            c.drawString(2*cm, height - 7.5*cm, "Unfitted Pieces:")
-            c.setFont("Helvetica", 12)
-            y = height - 8.2*cm
-            for name, pw, ph in leftovers:
-                c.drawString(2.5*cm, y, f"{name if name else 'Unnamed'}: {pw / 100:.2f} x {ph / 100:.2f} m")
-                y -= 0.5*cm
-                if y < 3*cm:
-                    c.showPage()
-                    y = height - 2*cm
-
-        c.showPage()
-
-        # --- Add Slab Layout Images ---
-        for i, (slab, layout) in enumerate(results):
-            fig, ax = plt.subplots(figsize=(8, 5))
-            sw, sh = slab
-            ax.add_patch(patches.Rectangle((0, 0), sw, sh, edgecolor='black', facecolor="#e28a8b"))
-
-            for label, (x, y), (w, h) in layout:
-                label = label.strip()
-                label_text = f"{label}\n{int(min(w,h))}x{int(max(w,h))}"
-                ax.add_patch(patches.Rectangle((x, y), w, h, edgecolor='black', facecolor="#e3dec3"))
-                ax.text(x + w / 2, y + h / 2, label_text, ha='center', va='center', fontsize=6)
-
-            ax.set_xlim(0, sw)
-            ax.set_ylim(0, sh)
-            ax.axis('off')
-            ax.set_aspect('equal')
-            fig.tight_layout()
-
-            img_buf = io.BytesIO()
-            fig.savefig(img_buf, format='png', dpi=150)
-            plt.close(fig)
-
-            img_path = os.path.join(tmpdirname, f"layout_{i}.png")
-            with open(img_path, 'wb') as f:
-                f.write(img_buf.getvalue())
-
-            # Add image to PDF
-            c.drawImage(img_path, x=2*cm, y=6*cm, width=width - 4*cm, preserveAspectRatio=True, mask='auto')
-            c.setFont("Helvetica", 12)
-            c.drawString(2*cm, 5.5*cm, f"Slab {i+1}: {int(sw)} x {int(sh)} cm")
-            c.showPage()
-
-        c.save()
-
-        # Read the PDF and offer download
-        with open(pdf_path, "rb") as f:
-            st.download_button("📄 Download Full Report (PDF)", f.read(), file_name="slab_optimization_report.pdf", mime="application/pdf")
-
-# All slabs drawn, now generate report
-generate_pdf_report(results, total_used_area, total_piece_area, used_slabs, leftovers)
-
