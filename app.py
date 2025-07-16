@@ -387,8 +387,9 @@ for line in req_input.strip().splitlines():
     piece_count += 1
 
 with st.sidebar:
-    mode = st.radio("Mode", ["Quartz", "Granite"], horizontal=True)
+    mode = st.radio("⚙️ Optimization Mode", ["Quartz", "Granite"], horizontal=True)
     smart_combo = st.checkbox("💡 Smart Combo", value=True, disabled=(mode == "Granite"))
+
     st.markdown("### 📊 Summary")
     st.metric("Total Area Required", f"{required_area_preview:.2f} m²")
     st.metric("Number of Required Slabs", piece_count)
