@@ -71,6 +71,27 @@ def guillotine_split(free_spaces: List[Tuple[float, float, float, float]],
             return (px, py), orientation
     return None, None
 
+def split_space(free_spaces: List[Tuple[float, float, float, float]], used_rect: Tuple[float, float, float, float]):
+    x, y, w, h = used_rect
+    updated_spaces = []
+    for fx, fy, fw, fh in free_spaces:
+        if x + w <= fx or x >= fx + fw or y + h <= fy or y >= fy + fh:
+            updated_spaces.append((fx, fy, fw, fh))  # no overlap
+            continue
+
+        # Perform Guillotine split
+        if x > fx:
+            updated_spaces.append((fx, fy, x - fx, fh))  # Left side
+        if x + w < fx + fw:
+            updated_spaces.append((x + w, fy, (fx + fw) - (x + w), fh))  # Right side
+        if y > fy:
+            updated_spaces.append((fx, fy, fw, y - fy))  # Bottom
+        if y + h < fy + fh:
+            updated_spaces.append((fx, y + h, fw, (fy + fh) - (y + h)))  # Top
+
+    # Remove degenerate
+    return [s for s in updated_spaces if s[2] > 0 and s[3] > 0]
+
 def sort_pieces(pieces: List[Tuple[float, float]]) -> List[Tuple[float, float]]:
     return sorted(pieces, key=lambda x: x[0] * x[1], reverse=True)
 
@@ -180,6 +201,40 @@ def nest_pieces_guillotine(required_pieces: List[Tuple[str, float, float]], avai
         def try_combo_wrapped(combo):
             combo_list = list(combo) * 5
             results, leftovers, used = try_combo(required_pieces, combo_list)
+            
+            # Try to reassign leftovers to existing slabs
+            if leftovers:
+                new_results = []
+                remaining = leftovers.copy()
+            
+                for slab, layout in results:
+                    sw, sh = slab
+                    free_spaces = [(0, 0, sw, sh)]
+            
+                    # Recreate free space map
+                    for _, (x, y), (w, h) in layout:
+                        free_spaces = split_space(free_spaces, (x, y, w, h))  # helper function
+            
+                    reassigned = []
+                    still_left = []
+            
+                    for piece in remaining:
+                        name, pw, ph = piece
+                        pos, dim = guillotine_split(free_spaces, pw, ph)
+                        if pos:
+                            reassigned.append((name, pos, dim))
+                        else:
+                            still_left.append(piece)
+            
+                    if reassigned:
+                        layout += reassigned
+            
+                    new_results.append((slab, layout))
+                    remaining = still_left
+            
+                results = new_results
+                leftovers = remaining
+            
             if leftovers:
                 return float('inf'), None  # infeasible layout
         
