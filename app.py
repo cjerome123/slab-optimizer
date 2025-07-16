@@ -301,7 +301,7 @@ def generate_pdf_report(results, total_used_area, total_piece_area, used_slabs, 
             st.session_state["pdf_bytes"] = f.read()
 
 # --- Input & UI ---
-with st.expander("🗕️ Input Dimensions", expanded=True):
+with st.expander("📐 Input Dimensions", expanded=True):
     col1, col2 = st.columns(2)
     with col1:
         req_input = st.text_area("Required pieces (in m)", "", placeholder="Input data here")
@@ -364,7 +364,7 @@ if st.button("⚙️ Nest Slabs"):
 # Render results if available
 if "results" in st.session_state:
     st.markdown("---")
-    st.subheader("🖏️ Slab Layouts")
+    st.subheader("🧩 Slab Layouts")
     for i, (slab, layout) in enumerate(st.session_state["results"]):
         label = f"{int(slab[0])} x {int(slab[1])} cm"
         with st.expander(f"Slab {i+1}: {label}", expanded=False):
