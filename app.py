@@ -172,36 +172,39 @@ def nest_pieces_guillotine(required_pieces: List[Tuple[str, float, float]], avai
         fill_data = [(i, compute_fill_ratio(layout, slab)) for i, (slab, layout) in enumerate(results)]
         fill_data.sort(key=lambda x: x[1])  # from most empty to most full
         
-        # Try moving small pieces from fuller slabs to emptier ones
-        for donor_i, _ in reversed(fill_data):  # from fullest
-            donor_slab, donor_layout = results[donor_i]
-            for receiver_i, _ in fill_data:     # to emptiest
-                if receiver_i == donor_i:
+        # Try moving smaller pieces from fuller slabs to emptier ones
+        for receiver_i, _ in fill_data:
+            receiver_slab, receiver_layout = results[receiver_i]
+            sw, sh = receiver_slab
+        
+            for donor_i, _ in reversed(fill_data):
+                if donor_i == receiver_i:
                     continue
         
-                receiver_slab, receiver_layout = results[receiver_i]
+                donor_slab, donor_layout = results[donor_i]
         
-                # Compute free space in receiver
-                sw, sh = receiver_slab
+                # Recalculate receiver's free space
                 free_spaces = [(0, 0, sw, sh)]
                 for _, (x, y), (w, h) in receiver_layout:
                     free_spaces = split_space(free_spaces, (x, y, w, h))
         
-                moved = []
-                kept = []
+                new_donor_layout = []
+                pieces_to_move = []
         
                 for piece in donor_layout:
                     name, (x, y), (w, h) = piece
                     pos, dim = guillotine_split(free_spaces, w, h)
                     if pos:
                         receiver_layout.append((name, pos, dim))
-                        moved.append(piece)
+                        # Update free space immediately so it won't be used again
+                        free_spaces = split_space(free_spaces, (pos[0], pos[1], dim[0], dim[1]))
+                        pieces_to_move.append(piece)
                     else:
-                        kept.append(piece)
+                        new_donor_layout.append(piece)
         
-                if moved:
+                if pieces_to_move:
+                    results[donor_i] = (donor_slab, new_donor_layout)
                     results[receiver_i] = (receiver_slab, receiver_layout)
-                    results[donor_i] = (donor_slab, kept)
         
         return results, pieces, used_slabs
 
