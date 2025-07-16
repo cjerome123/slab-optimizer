@@ -79,17 +79,16 @@ def split_space(free_spaces: List[Tuple[float, float, float, float]], used_rect:
             updated_spaces.append((fx, fy, fw, fh))  # no overlap
             continue
 
-        # Perform Guillotine split
+        # Guillotine split: left, right, bottom, top
         if x > fx:
-            updated_spaces.append((fx, fy, x - fx, fh))  # Left side
+            updated_spaces.append((fx, fy, x - fx, fh))  # Left
         if x + w < fx + fw:
-            updated_spaces.append((x + w, fy, (fx + fw) - (x + w), fh))  # Right side
+            updated_spaces.append((x + w, fy, fx + fw - (x + w), fh))  # Right
         if y > fy:
             updated_spaces.append((fx, fy, fw, y - fy))  # Bottom
         if y + h < fy + fh:
-            updated_spaces.append((fx, y + h, fw, (fy + fh) - (y + h)))  # Top
+            updated_spaces.append((fx, y + h, fw, fy + fh - (y + h)))  # Top
 
-    # Remove degenerate
     return [s for s in updated_spaces if s[2] > 0 and s[3] > 0]
 
 def sort_pieces(pieces: List[Tuple[float, float]]) -> List[Tuple[float, float]]:
@@ -163,6 +162,47 @@ def nest_pieces_guillotine(required_pieces: List[Tuple[str, float, float]], avai
             if not pieces:
                 break
 
+        # --- Begin rebalancing pass ---
+        def compute_fill_ratio(layout, slab):
+            slab_area = slab[0] * slab[1]
+            used_area = sum(w * h for _, _, (w, h) in layout)
+            return used_area / slab_area
+        
+        # Sort slabs by fill ratio (low to high)
+        fill_data = [(i, compute_fill_ratio(layout, slab)) for i, (slab, layout) in enumerate(results)]
+        fill_data.sort(key=lambda x: x[1])  # from most empty to most full
+        
+        # Try moving small pieces from fuller slabs to emptier ones
+        for donor_i, _ in reversed(fill_data):  # from fullest
+            donor_slab, donor_layout = results[donor_i]
+            for receiver_i, _ in fill_data:     # to emptiest
+                if receiver_i == donor_i:
+                    continue
+        
+                receiver_slab, receiver_layout = results[receiver_i]
+        
+                # Compute free space in receiver
+                sw, sh = receiver_slab
+                free_spaces = [(0, 0, sw, sh)]
+                for _, (x, y), (w, h) in receiver_layout:
+                    free_spaces = split_space(free_spaces, (x, y, w, h))
+        
+                moved = []
+                kept = []
+        
+                for piece in donor_layout:
+                    name, (x, y), (w, h) = piece
+                    pos, dim = guillotine_split(free_spaces, w, h)
+                    if pos:
+                        receiver_layout.append((name, pos, dim))
+                        moved.append(piece)
+                    else:
+                        kept.append(piece)
+        
+                if moved:
+                    results[receiver_i] = (receiver_slab, receiver_layout)
+                    results[donor_i] = (donor_slab, kept)
+        
         return results, pieces, used_slabs
 
     else:
