@@ -383,7 +383,7 @@ if "results" in st.session_state:
 
     if "pdf_bytes" in st.session_state:
         st.sidebar.download_button(
-            "📄 Download Full PDF Report",
+            "Download PDF",
             data=st.session_state["pdf_bytes"],
             file_name="slab_optimization_report.pdf",
             mime="application/pdf"
