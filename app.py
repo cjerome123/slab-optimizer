@@ -12,6 +12,7 @@ import os
 from reportlab.lib.pagesizes import landscape, letter
 from reportlab.pdfgen import canvas
 from reportlab.lib.units import cm
+import statistics
 
 st.set_page_config(layout="wide")
 
@@ -179,22 +180,30 @@ def nest_pieces_guillotine(required_pieces: List[Tuple[str, float, float]], avai
         def try_combo_wrapped(combo):
             combo_list = list(combo) * 5
             results, leftovers, used = try_combo(required_pieces, combo_list)
-            if not leftovers:
-                used_area = sum(w * h for w, h in used)
-                wastage = used_area - required_area
-
-                # Add penalty if any slab is very underused (<30% filled)
-                imbalanced_penalty = 0
-                for slab, layout in results:
-                    slab_area = slab[0] * slab[1]
-                    piece_area = sum(w * h for _, _, (w, h) in layout)
-                    fill_ratio = piece_area / slab_area
-                    if fill_ratio < 0.3:
-                        imbalanced_penalty += (0.3 - fill_ratio) * slab_area  # Penalize worse fill ratios more
-                
-                total_score = wastage + imbalanced_penalty
-                return total_score, (results, leftovers, used)
-            return float('inf'), None
+            if leftovers:
+                return float('inf'), None  # infeasible layout
+        
+            used_area = sum(w * h for w, h in used)
+            wastage = used_area - required_area
+        
+            # --- Compute fill ratios (used area per slab) ---
+            fill_ratios = []
+            for slab, layout in results:
+                slab_area = slab[0] * slab[1]
+                piece_area = sum(w * h for _, _, (w, h) in layout)
+                ratio = piece_area / slab_area
+                fill_ratios.append(ratio)
+        
+            # --- Standard deviation penalty ---
+            if len(fill_ratios) > 1:
+                stddev = statistics.stdev(fill_ratios)
+            else:
+                stddev = 0
+        
+            imbalance_penalty = stddev * used_area  # heavier penalty for large slabs with poor balance
+            score = wastage + imbalance_penalty
+        
+            return score, (results, leftovers, used)
 
         if not use_smart_combo:
             return try_combo(required_pieces, available_slabs)
