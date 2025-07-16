@@ -182,7 +182,18 @@ def nest_pieces_guillotine(required_pieces: List[Tuple[str, float, float]], avai
             if not leftovers:
                 used_area = sum(w * h for w, h in used)
                 wastage = used_area - required_area
-                return wastage, (results, leftovers, used)
+
+                # Add penalty if any slab is very underused (<30% filled)
+                imbalanced_penalty = 0
+                for slab, layout in results:
+                    slab_area = slab[0] * slab[1]
+                    piece_area = sum(w * h for _, _, (w, h) in layout)
+                    fill_ratio = piece_area / slab_area
+                    if fill_ratio < 0.3:
+                        imbalanced_penalty += (0.3 - fill_ratio) * slab_area  # Penalize worse fill ratios more
+                
+                total_score = wastage + imbalanced_penalty
+                return total_score, (results, leftovers, used)
             return float('inf'), None
 
         if not use_smart_combo:
