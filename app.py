@@ -364,7 +364,7 @@ if st.button("⚙️ Nest Slabs"):
 # Render results if available
 if "results" in st.session_state:
     st.markdown("---")
-    st.subheader("🧩 Slab Layouts")
+    st.subheader("SLAB LAYOUT")
     for i, (slab, layout) in enumerate(st.session_state["results"]):
         label = f"{int(slab[0])} x {int(slab[1])} cm"
         with st.expander(f"Slab {i+1}: {label}", expanded=False):
