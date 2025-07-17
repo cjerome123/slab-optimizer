@@ -184,37 +184,30 @@ def draw_slab_layout(slab: tuple, layout: list):
 def generate_pdf_report(results, total_used_area, total_piece_area, used_slabs, leftovers):
     with tempfile.TemporaryDirectory() as tmpdirname:
         pdf_path = os.path.join(tmpdirname, "slab_report.pdf")
-        page_size = landscape(letter)
+        page_size = landscape(letter)  # Use letter Landscape for more space
         c = canvas.Canvas(pdf_path, pagesize=page_size)
         width, height = page_size
         margin = 2 * cm
         usable_width = width - 2 * margin
         usable_height = height - 3 * margin
 
-        slab_images = []
-
-        # Step 1: Generate all slab layout images and store dimensions
         for i, (slab, layout) in enumerate(results):
             sw, sh = slab
-            fig_width = 28
+            fig_width = 28  # Increased width for larger visuals
             fig_height = fig_width * (sh / sw)
             fig, ax = plt.subplots(figsize=(fig_width, fig_height))
             ax.add_patch(patches.Rectangle((0, 0), sw, sh, edgecolor='black', facecolor=slab_color))
 
             for label, (x, y), (w, h) in layout:
                 label = label.strip()
-                if label:
-                    label_text = f"{label}\n{int(min(w, h))}x{int(max(w, h))}"
-                else:
-                    label_text = f"{int(min(w, h))}x{int(max(w, h))}"
-
+                label_text = f"{label}\n{int(min(w,h))}x{int(max(w,h))}"
                 font_size = min(max(min(w, h) // 26, 26), 26)
                 ax.add_patch(patches.Rectangle((x, y), w, h, edgecolor='black', facecolor=piece_color))
                 ax.text(
                     x + w / 2, y + h / 2, label_text,
                     ha='center', va='center',
                     fontsize=font_size, fontweight='bold', color='black',
-                    multialignment='center'
+                    multialignment='center',
                 )
 
             ax.set_xlim(0, sw)
@@ -231,68 +224,20 @@ def generate_pdf_report(results, total_used_area, total_piece_area, used_slabs, 
             with open(img_path, 'wb') as f:
                 f.write(img_buf.getvalue())
 
-            slab_images.append({
-                "index": i,
-                "path": img_path,
-                "height_ratio": sh / sw,
-                "sw": sw,
-                "sh": sh
-            })
+            # Draw slab name on top-left
+            c.setFont("Helvetica-Bold", 18)
+            c.drawString(margin, height - margin, f"Slab {i+1}: {int(sw)} x {int(sh)} cm")
 
-        # Step 2: Compose PDF pages with up to 2 slabs per page
-        i = 0
-        while i < len(slab_images):
-            img1 = slab_images[i]
-            img2 = slab_images[i + 1] if (i + 1 < len(slab_images)) else None
-
-            # Estimate image display heights
-            half_height = usable_height / 2 if img2 else usable_height
-            img1_height = half_height
-            img1_width = usable_width
-            img2_height = half_height
-            img2_width = usable_width
-
-            label_padding = 20  # points to leave space for the label
-
-            # Slab 1 label & image
-            c.setFont("Helvetica-Bold", 14)
-            label1_text = f"Slab {img1['index']+1}: {int(img1['sw'])} x {int(img1['sh'])} cm"
-            if img2:
-                img1_y = (height / 2) + label_padding
-                label1_y = img1_y + img1_height + 4  # a little above the image
-            else:
-                img1_y = margin + label_padding
-                label1_y = img1_y + img1_height + 4
-            c.drawString(margin, label1_y, label1_text)
+            # Draw image
             c.drawImage(
-                img1["path"],
+                img_path,
                 x=margin,
-                y=img1_y,
-                width=img1_width,
-                height=img1_height,
+                y=margin,
+                width=usable_width,
+                height=usable_height,
                 preserveAspectRatio=True,
                 mask='auto'
             )
-
-            # Draw Slab 2 if available and enough space
-            if img2:
-                c.setFont("Helvetica-Bold", 14)
-                label2_text = f"Slab {img2['index']+1}: {int(img2['sw'])} x {int(img2['sh'])} cm"
-                img2_y = margin + label_padding
-                label2_y = img2_y + img2_height + 4
-                c.drawString(margin, label2_y, label2_text)
-                c.drawImage(
-                    img2["path"],
-                    x=margin,
-                    y=img2_y,
-                    width=img2_width,
-                    height=img2_height,
-                    preserveAspectRatio=True,
-                    mask='auto'
-                )
-                i += 2
-            else:
-                i += 1
 
             c.showPage()
 
@@ -301,7 +246,7 @@ def generate_pdf_report(results, total_used_area, total_piece_area, used_slabs, 
             st.session_state["pdf_bytes"] = f.read()
 
 # --- Input & UI ---
-with st.expander("📐 Input Dimensions", expanded=True):
+with st.expander("🗕️ Input Dimensions", expanded=True):
     col1, col2 = st.columns(2)
     with col1:
         req_input = st.text_area("Required pieces (in m)", "", placeholder="Input data here")
@@ -364,7 +309,7 @@ if st.button("⚙️ Nest Slabs"):
 # Render results if available
 if "results" in st.session_state:
     st.markdown("---")
-    st.subheader("📑 SLAB LAYOUT")
+    st.subheader("🖏️ Slab Layouts")
     for i, (slab, layout) in enumerate(st.session_state["results"]):
         label = f"{int(slab[0])} x {int(slab[1])} cm"
         with st.expander(f"Slab {i+1}: {label}", expanded=False):
@@ -383,7 +328,7 @@ if "results" in st.session_state:
 
     if "pdf_bytes" in st.session_state:
         st.sidebar.download_button(
-            "Download PDF",
+            "📄 Download Full PDF Report",
             data=st.session_state["pdf_bytes"],
             file_name="slab_optimization_report.pdf",
             mime="application/pdf"
