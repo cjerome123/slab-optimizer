@@ -91,6 +91,87 @@ def split_space(free_spaces: List[Tuple[float, float, float, float]], used_rect:
 
     return [s for s in updated_spaces if s[2] > 0 and s[3] > 0]
 
+def rebalance_slab_usage(results):
+    max_moves = 15
+    moves_done = 0
+
+    def compute_fill(slab, layout):
+        slab_area = slab[0] * slab[1]
+        used_area = sum(w * h for _, _, (w, h) in layout)
+        return used_area / slab_area if slab_area > 0 else 0
+
+    def get_stddev(results):
+        ratios = [compute_fill(slab, layout) for slab, layout in results]
+        return statistics.stdev(ratios) if len(ratios) > 1 else 0
+
+    current_stddev = get_stddev(results)
+
+    for receiver_i in range(len(results)):
+        receiver_slab, receiver_layout = results[receiver_i]
+        sw, sh = receiver_slab
+        free_spaces = [(0, 0, sw, sh)]
+        for _, (x, y), (w, h) in receiver_layout:
+            free_spaces = split_space(free_spaces, (x, y, w, h))
+
+        for donor_i in range(len(results)):
+            if receiver_i == donor_i:
+                continue
+            donor_slab, donor_layout = results[donor_i]
+            temp_donor_layout = donor_layout.copy()
+            temp_receiver_layout = receiver_layout.copy()
+            temp_free_spaces = free_spaces.copy()
+            donor_pieces = sorted(donor_layout, key=lambda x: x[2][0] * x[2][1])
+
+            for piece in donor_pieces:
+                name, (x, y), (w, h) = piece
+                pos, dim = guillotine_split(temp_free_spaces, (w, h))
+                if not pos:
+                    continue
+                temp_receiver_layout.append((name, pos, dim))
+                temp_donor_layout.remove(piece)
+                temp_free_spaces = split_space(temp_free_spaces, (pos[0], pos[1], dim[0], dim[1]))
+                sim_results = results.copy()
+                sim_results[receiver_i] = (receiver_slab, temp_receiver_layout)
+                sim_results[donor_i] = (donor_slab, temp_donor_layout)
+                new_stddev = get_stddev(sim_results)
+
+                if new_stddev < current_stddev:
+                    receiver_layout.append((name, pos, dim))
+                    donor_layout.remove(piece)
+                    free_spaces = temp_free_spaces
+                    results[receiver_i] = (receiver_slab, receiver_layout)
+                    results[donor_i] = (donor_slab, donor_layout)
+                    current_stddev = new_stddev
+                    moves_done += 1
+                    break
+
+            if moves_done >= max_moves:
+                return results
+    return results
+
+# Patch here: call rebalance_slab_usage if in Granite Mode
+def generate_layout(pieces, slabs):
+    results = []
+    used = [False] * len(pieces)
+    for slab in slabs:
+        sw, sh = slab
+        spaces = [(0, 0, sw, sh)]
+        layout = []
+        for i, (name, w, h) in enumerate(pieces):
+            if used[i]:
+                continue
+            pos, dim = guillotine_split(spaces, (w, h))
+            if pos:
+                layout.append((name, pos, dim))
+                spaces = split_space(spaces, (pos[0], pos[1], dim[0], dim[1]))
+                used[i] = True
+        results.append((slab, layout))
+
+    if mode == "Granite":
+        results = rebalance_slab_usage(results)
+
+    return results
+
 def sort_pieces(pieces: List[Tuple[float, float]]) -> List[Tuple[float, float]]:
     return sorted(pieces, key=lambda x: x[0] * x[1], reverse=True)
 
