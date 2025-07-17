@@ -12,7 +12,6 @@ import os
 from reportlab.lib.pagesizes import landscape, letter
 from reportlab.pdfgen import canvas
 from reportlab.lib.units import cm
-import statistics
 
 st.set_page_config(layout="wide")
 
@@ -71,107 +70,6 @@ def guillotine_split(free_spaces: List[Tuple[float, float, float, float]],
             return (px, py), orientation
     return None, None
 
-def split_space(free_spaces: List[Tuple[float, float, float, float]], used_rect: Tuple[float, float, float, float]):
-    x, y, w, h = used_rect
-    updated_spaces = []
-    for fx, fy, fw, fh in free_spaces:
-        if x + w <= fx or x >= fx + fw or y + h <= fy or y >= fy + fh:
-            updated_spaces.append((fx, fy, fw, fh))  # no overlap
-            continue
-
-        # Guillotine split: left, right, bottom, top
-        if x > fx:
-            updated_spaces.append((fx, fy, x - fx, fh))  # Left
-        if x + w < fx + fw:
-            updated_spaces.append((x + w, fy, fx + fw - (x + w), fh))  # Right
-        if y > fy:
-            updated_spaces.append((fx, fy, fw, y - fy))  # Bottom
-        if y + h < fy + fh:
-            updated_spaces.append((fx, y + h, fw, fy + fh - (y + h)))  # Top
-
-    return [s for s in updated_spaces if s[2] > 0 and s[3] > 0]
-
-def rebalance_slab_usage(results):
-    max_moves = 15
-    moves_done = 0
-
-    def compute_fill(slab, layout):
-        slab_area = slab[0] * slab[1]
-        used_area = sum(w * h for _, _, (w, h) in layout)
-        return used_area / slab_area if slab_area > 0 else 0
-
-    def get_stddev(results):
-        ratios = [compute_fill(slab, layout) for slab, layout in results]
-        return statistics.stdev(ratios) if len(ratios) > 1 else 0
-
-    current_stddev = get_stddev(results)
-
-    for receiver_i in range(len(results)):
-        receiver_slab, receiver_layout = results[receiver_i]
-        sw, sh = receiver_slab
-        free_spaces = [(0, 0, sw, sh)]
-        for _, (x, y), (w, h) in receiver_layout:
-            free_spaces = split_space(free_spaces, (x, y, w, h))
-
-        for donor_i in range(len(results)):
-            if receiver_i == donor_i:
-                continue
-            donor_slab, donor_layout = results[donor_i]
-            temp_donor_layout = donor_layout.copy()
-            temp_receiver_layout = receiver_layout.copy()
-            temp_free_spaces = free_spaces.copy()
-            donor_pieces = sorted(donor_layout, key=lambda x: x[2][0] * x[2][1])
-
-            for piece in donor_pieces:
-                name, (x, y), (w, h) = piece
-                pos, dim = guillotine_split(temp_free_spaces, (w, h))
-                if not pos:
-                    continue
-                temp_receiver_layout.append((name, pos, dim))
-                temp_donor_layout.remove(piece)
-                temp_free_spaces = split_space(temp_free_spaces, (pos[0], pos[1], dim[0], dim[1]))
-                sim_results = results.copy()
-                sim_results[receiver_i] = (receiver_slab, temp_receiver_layout)
-                sim_results[donor_i] = (donor_slab, temp_donor_layout)
-                new_stddev = get_stddev(sim_results)
-
-                if new_stddev < current_stddev:
-                    receiver_layout.append((name, pos, dim))
-                    donor_layout.remove(piece)
-                    free_spaces = temp_free_spaces
-                    results[receiver_i] = (receiver_slab, receiver_layout)
-                    results[donor_i] = (donor_slab, donor_layout)
-                    current_stddev = new_stddev
-                    moves_done += 1
-                    break
-
-            if moves_done >= max_moves:
-                return results
-    return results
-
-# Patch here: call rebalance_slab_usage if in Granite Mode
-def generate_layout(pieces, slabs):
-    results = []
-    used = [False] * len(pieces)
-    for slab in slabs:
-        sw, sh = slab
-        spaces = [(0, 0, sw, sh)]
-        layout = []
-        for i, (name, w, h) in enumerate(pieces):
-            if used[i]:
-                continue
-            pos, dim = guillotine_split(spaces, (w, h))
-            if pos:
-                layout.append((name, pos, dim))
-                spaces = split_space(spaces, (pos[0], pos[1], dim[0], dim[1]))
-                used[i] = True
-        results.append((slab, layout))
-
-    if mode == "Granite":
-        results = rebalance_slab_usage(results)
-
-    return results
-
 def sort_pieces(pieces: List[Tuple[float, float]]) -> List[Tuple[float, float]]:
     return sorted(pieces, key=lambda x: x[0] * x[1], reverse=True)
 
@@ -206,206 +104,44 @@ def try_combo(required_pieces: List[Tuple[str, float, float]], combo: List[Tuple
 
     return results, pieces, used_slabs
 
-def nest_pieces_guillotine(required_pieces: List[Tuple[str, float, float]], available_slabs: List[Tuple[float, float]], use_smart_combo: bool = True, granite_mode: bool = False):
+def nest_pieces_guillotine(required_pieces: List[Tuple[str, float, float]], available_slabs: List[Tuple[float, float]], use_smart_combo: bool = True):
     def sort_slabs(slabs):
         return sorted(slabs, key=lambda x: x[0] * x[1])
+
+    def try_combo_wrapped(combo):
+        combo_list = list(combo) * 5
+        results, leftovers, used = try_combo(required_pieces, combo_list)
+        if not leftovers:
+            used_area = sum(w * h for w, h in used)
+            wastage = used_area - required_area
+            return wastage, (results, leftovers, used)
+        return float('inf'), None
 
     required_area = sum(w * h for _, w, h in required_pieces)
     sorted_slabs = sort_slabs(available_slabs)
 
-    if granite_mode:
-        # Granite mode: Use each slab once in order
-        results = []
-        used_slabs = []
-        pieces = sorted(required_pieces, key=lambda x: x[1] * x[2], reverse=True)
+    if not use_smart_combo:
+        return try_combo(required_pieces, available_slabs)
 
-        for slab in sorted_slabs:
-            sw, sh = slab
-            if sh > sw:
-                sw, sh = sh, sw
+    best_result = None
+    min_wastage = float('inf')
 
-            layout = []
-            free_spaces = [(0, 0, sw, sh)]
-            still_needed = []
-
-            for name, pw, ph in pieces:
-                pos, dim = guillotine_split(free_spaces, pw, ph)
-                if pos:
-                    layout.append((name, pos, dim))
-                else:
-                    still_needed.append((name, pw, ph))
-
-            if layout:
-                results.append(((sw, sh), layout))
-                used_slabs.append((sw, sh))
-
-            pieces = still_needed
-            if not pieces:
-                break
-
-        # --- Begin rebalancing pass ---
-        def compute_fill_ratio(layout, slab):
-            slab_area = slab[0] * slab[1]
-            used_area = sum(w * h for _, _, (w, h) in layout)
-            return used_area / slab_area
-        
-        # Sort slabs by fill ratio (low to high)
-        fill_data = [(i, compute_fill_ratio(layout, slab)) for i, (slab, layout) in enumerate(results)]
-        fill_data.sort(key=lambda x: x[1])  # from most empty to most full
-        
-        # Try moving smaller pieces from fuller slabs to emptier ones
-        for receiver_i, _ in fill_data:
-            receiver_slab, receiver_layout = results[receiver_i]
-            sw, sh = receiver_slab
-        
-            for donor_i, _ in reversed(fill_data):
-                if donor_i == receiver_i:
+    with ThreadPoolExecutor() as executor:
+        futures = []
+        for r in range(1, min(len(sorted_slabs), 5) + 1):
+            for combo in combinations(sorted_slabs, r):
+                slab_area = sum(w * h for w, h in combo)
+                if slab_area < required_area:
                     continue
-        
-                donor_slab, donor_layout = results[donor_i]
-        
-                # Recalculate receiver's free space
-                free_spaces = [(0, 0, sw, sh)]
-                for _, (x, y), (w, h) in receiver_layout:
-                    free_spaces = split_space(free_spaces, (x, y, w, h))
-        
-                new_donor_layout = []
-                pieces_to_move = []
-        
-                for piece in donor_layout:
-                    name, (x, y), (w, h) = piece
-                    pos, dim = guillotine_split(free_spaces, w, h)
-                    if pos:
-                        receiver_layout.append((name, pos, dim))
-                        # Update free space immediately so it won't be used again
-                        free_spaces = split_space(free_spaces, (pos[0], pos[1], dim[0], dim[1]))
-                        pieces_to_move.append(piece)
-                    else:
-                        new_donor_layout.append(piece)
-        
-                if pieces_to_move:
-                    results[donor_i] = (donor_slab, new_donor_layout)
-                    results[receiver_i] = (receiver_slab, receiver_layout)
-        
-        return results, pieces, used_slabs
+                futures.append(executor.submit(try_combo_wrapped, combo))
 
-    else:
-        # Quartz mode (smart combo or regular)
-        def try_combo(required_pieces: List[Tuple[str, float, float]], combo: List[Tuple[float, float]]):
-            results = []
-            used_slabs = []
-            pieces = sorted(required_pieces, key=lambda x: x[1] * x[2], reverse=True)
+        for future in as_completed(futures):
+            wastage, result = future.result()
+            if result and wastage < min_wastage:
+                min_wastage = wastage
+                best_result = result
 
-            for slab in combo:
-                sw, sh = slab
-                if sh > sw:
-                    sw, sh = sh, sw
-
-                layout = []
-                free_spaces = [(0, 0, sw, sh)]
-                still_needed = []
-
-                for name, pw, ph in pieces:
-                    pos, dim = guillotine_split(free_spaces, pw, ph)
-                    if pos:
-                        layout.append((name, pos, dim))
-                    else:
-                        still_needed.append((name, pw, ph))
-
-                if layout:
-                    results.append(((sw, sh), layout))
-                    used_slabs.append((sw, sh))
-                pieces = still_needed
-
-                if not pieces:
-                    break
-
-            return results, pieces, used_slabs
-
-        def try_combo_wrapped(combo):
-            combo_list = list(combo) * 5
-            results, leftovers, used = try_combo(required_pieces, combo_list)
-            
-            # Try to reassign leftovers to existing slabs
-            if leftovers:
-                new_results = []
-                remaining = leftovers.copy()
-            
-                for slab, layout in results:
-                    sw, sh = slab
-                    free_spaces = [(0, 0, sw, sh)]
-            
-                    # Recreate free space map
-                    for _, (x, y), (w, h) in layout:
-                        free_spaces = split_space(free_spaces, (x, y, w, h))  # helper function
-            
-                    reassigned = []
-                    still_left = []
-            
-                    for piece in remaining:
-                        name, pw, ph = piece
-                        pos, dim = guillotine_split(free_spaces, pw, ph)
-                        if pos:
-                            reassigned.append((name, pos, dim))
-                        else:
-                            still_left.append(piece)
-            
-                    if reassigned:
-                        layout += reassigned
-            
-                    new_results.append((slab, layout))
-                    remaining = still_left
-            
-                results = new_results
-                leftovers = remaining
-            
-            if leftovers:
-                return float('inf'), None  # infeasible layout
-        
-            used_area = sum(w * h for w, h in used)
-            wastage = used_area - required_area
-        
-            # --- Compute fill ratios (used area per slab) ---
-            fill_ratios = []
-            for slab, layout in results:
-                slab_area = slab[0] * slab[1]
-                piece_area = sum(w * h for _, _, (w, h) in layout)
-                ratio = piece_area / slab_area
-                fill_ratios.append(ratio)
-        
-            # --- Standard deviation penalty ---
-            if len(fill_ratios) > 1:
-                stddev = statistics.stdev(fill_ratios)
-            else:
-                stddev = 0
-        
-            imbalance_penalty = stddev * used_area  # heavier penalty for large slabs with poor balance
-            score = wastage + imbalance_penalty
-        
-            return score, (results, leftovers, used)
-
-        if not use_smart_combo:
-            return try_combo(required_pieces, available_slabs)
-
-        best_result = None
-        min_wastage = float('inf')
-
-        with ThreadPoolExecutor() as executor:
-            futures = []
-            for r in range(1, min(len(sorted_slabs), 5) + 1):
-                for combo in combinations(sorted_slabs, r):
-                    slab_area = sum(w * h for w, h in combo)
-                    if slab_area < required_area:
-                        continue
-                    futures.append(executor.submit(try_combo_wrapped, combo))
-
-            for future in as_completed(futures):
-                wastage, result = future.result()
-                if result and wastage < min_wastage:
-                    min_wastage = wastage
-                    best_result = result
-
-        return best_result if best_result else ([], required_pieces, [])
+    return best_result if best_result else ([], required_pieces, [])
 
 def draw_slab_layout(slab: tuple, layout: list):
     sw, sh = slab
@@ -586,9 +322,7 @@ for line in req_input.strip().splitlines():
     piece_count += 1
 
 with st.sidebar:
-    mode = st.radio("⚙️ Optimization Mode", ["Quartz", "Granite"], horizontal=True)
-    smart_combo = st.checkbox("💡 Smart Combo", value=True, disabled=(mode == "Granite"))
-
+    smart_combo = st.checkbox("💡 Smart Combo", value=True)
     st.markdown("### 📊 Summary")
     st.metric("Total Area Required", f"{required_area_preview:.2f} m²")
     st.metric("Number of Required Slabs", piece_count)
@@ -611,11 +345,7 @@ if st.button("⚙️ Nest Slabs"):
             w, h = map(float, line.strip().split())
             available.append((w, h))
 
-        results, leftovers, used_slabs = nest_pieces_guillotine(
-            required, available, 
-            use_smart_combo=smart_combo,
-            granite_mode=(mode == "Granite")
-        )
+        results, leftovers, used_slabs = nest_pieces_guillotine(required, available, use_smart_combo=smart_combo)
 
         total_used_area = sum(slab[0] * slab[1] for slab, _ in results)
         total_piece_area = sum(w * h for _, layout in results for (_, _, (w, h)) in layout)
