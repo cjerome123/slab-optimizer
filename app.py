@@ -408,12 +408,6 @@ with st.sidebar:
     st.metric("Total Area Required", f"{total_area_m2:.2f} m²")
     st.metric("Number of Pieces", len(required_preview_list))
 
-    st.markdown("---")
-
-    # --- Slab Sufficiency ---
-    st.header("📦 Slab Check")
-    check_slab_sufficiency(required_preview_list, available_preview_list)
-
 if st.button("⚙️ Nest Slabs"):
     try:
         required = []
