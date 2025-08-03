@@ -399,10 +399,10 @@ for line in slab_input.strip().splitlines():
         continue
 
 with st.sidebar:
-    # --- Mode selection ---
-    st.subheader("⚙️ Settings")
-    mode = st.selectbox("Mode", ["Quartz", "Granite"])
-    smart_combo = st.checkbox("💡 Smart Combo", value=True, disabled=(mode == "Granite"))
+    # --- Settings in a collapsible menu ---
+    with st.expander("⚙️ Settings", expanded=False):
+        mode = st.radio("Mode", ["Quartz", "Granite"])
+        smart_combo = st.checkbox("💡 Smart Combo", value=True, disabled=(mode == "Granite"))
 
     st.markdown("---")
 
