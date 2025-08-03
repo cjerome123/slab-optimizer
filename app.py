@@ -43,19 +43,6 @@ st.markdown(f"""
 </style>
 """, unsafe_allow_html=True)
 
-# ✅ Slab sufficiency check function
-def check_slab_sufficiency(required_pieces, available_slabs):
-    """Display slab sufficiency status in sidebar."""
-    required_area = sum(w * h for _, w, h in required_pieces)  # cm²
-    available_area = sum(w * h for w, h in available_slabs)    # cm²
-
-    if available_area >= required_area:
-        st.success(f"✅ Slabs are sufficient.\nRequired: {required_area/10000:.2f} m², "
-                   f"Available: {available_area/10000:.2f} m²")
-    else:
-        shortage = (required_area - available_area) / 10000
-        st.error(f"❌ Slabs are NOT enough.\nShort by {shortage:.2f} m²")
-
 st.title("SLAB OPTIMIZATION")
 
 def can_fit_any_rotation(piece: Tuple[float, float], space: Tuple[float, float]) -> Tuple[bool, Tuple[float, float]]:
