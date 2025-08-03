@@ -417,7 +417,6 @@ with st.sidebar:
         st.metric("Slabs", slab_count)
 
     # --- Sufficiency Check ---
-    st.markdown("---")
     if available_area_preview >= required_area_preview:
         st.success("✅ Slabs are sufficient")
     else:
