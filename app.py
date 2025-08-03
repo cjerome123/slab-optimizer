@@ -404,8 +404,6 @@ with st.sidebar:
         mode = st.radio("Mode", ["Quartz", "Granite"])
         smart_combo = st.checkbox("💡 Smart Combo", value=True, disabled=(mode == "Granite"))
 
-    st.markdown("---")
-
     # --- Summary Section ---
     st.subheader("📊 Summary")
     col_a, col_b = st.columns(2)
