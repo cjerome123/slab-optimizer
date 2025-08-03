@@ -399,14 +399,30 @@ for line in slab_input.strip().splitlines():
         continue
 
 with st.sidebar:
-    mode = st.radio("⚙️ Optimization Mode", ["Quartz", "Granite"], horizontal=True)
+    # --- Mode selection ---
+    st.subheader("⚙️ Settings")
+    mode = st.radio("Mode", ["Quartz", "Granite"], horizontal=True)
     smart_combo = st.checkbox("💡 Smart Combo", value=True, disabled=(mode == "Granite"))
 
-    st.markdown("### 📊 Summary")
-    st.metric("Total Area Required", f"{required_area_preview:.2f} m²")
-    st.metric("Number of Required Pieces", piece_count)
-    st.metric("Total Available Slab Area", f"{available_area_preview:.2f} m²")
-    st.metric("Number of Available Slabs", slab_count)
+    st.markdown("---")
+
+    # --- Summary Section ---
+    st.subheader("📊 Summary")
+    col_a, col_b = st.columns(2)
+    with col_a:
+        st.metric("Req. Area", f"{required_area_preview:.2f} m²")
+        st.metric("Pieces", piece_count)
+    with col_b:
+        st.metric("Avail. Area", f"{available_area_preview:.2f} m²")
+        st.metric("Slabs", slab_count)
+
+    # --- Sufficiency Check ---
+    st.markdown("---")
+    if available_area_preview >= required_area_preview:
+        st.success("✅ Slabs are sufficient")
+    else:
+        shortage = required_area_preview - available_area_preview
+        st.error(f"❌ Need {shortage:.2f} m² more")
 
 if st.button("⚙️ Nest Slabs"):
     try:
