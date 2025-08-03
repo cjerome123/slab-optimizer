@@ -408,15 +408,42 @@ for line in slab_input.strip().splitlines():
 
 # Sidebar with sufficiency check
 with st.sidebar:
-    mode = st.radio("⚙️ Optimization Mode", ["Quartz", "Granite"], horizontal=True)
+    # --- Mode Settings ---
+    st.header("⚙️ Settings")
+    mode = st.radio("Optimization Mode", ["Quartz", "Granite"], horizontal=True)
     smart_combo = st.checkbox("💡 Smart Combo", value=True, disabled=(mode == "Granite"))
 
-    st.markdown("### 📊 Summary")
-    st.metric("Total Area Required", f"{sum(w*h for _, w, h in required_preview_list) / 10000:.2f} m²")
-    st.metric("Number of Required Pieces", len(required_preview_list))
+    st.markdown("---")
 
-    st.markdown("### 📦 Slab Sufficiency Check")
+    # --- Summary ---
+    st.header("📊 Summary")
+    total_area_m2 = sum(w*h for _, w, h in required_preview_list) / 10000
+    st.metric("Total Area Required", f"{total_area_m2:.2f} m²")
+    st.metric("Number of Pieces", len(required_preview_list))
+
+    st.markdown("---")
+
+    # --- Slab Sufficiency ---
+    st.header("📦 Slab Check")
     check_slab_sufficiency(required_preview_list, available_preview_list)
+
+    st.markdown("---")
+
+    # --- Results (Only if available) ---
+    if "used_slabs" in st.session_state:
+        st.header("📑 Results")
+        st.write(f"**Slabs Used:** {len(st.session_state['used_slabs'])}")
+        st.write(f"**Total Slab Area:** {st.session_state['total_used_area'] / 10000:.2f} m²")
+        st.write(f"**Wastage Area:** {(st.session_state['total_used_area'] - st.session_state['total_piece_area']) / 10000:.2f} m²")
+
+    # --- PDF Download ---
+    if "pdf_bytes" in st.session_state:
+        st.download_button(
+            "📥 Download PDF Report",
+            data=st.session_state["pdf_bytes"],
+            file_name="slab_optimization_report.pdf",
+            mime="application/pdf"
+        )
 
 if st.button("⚙️ Nest Slabs"):
     try:
