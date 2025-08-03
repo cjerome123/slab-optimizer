@@ -379,7 +379,14 @@ def generate_pdf_report(results, total_used_area, total_piece_area, used_slabs, 
             st.session_state["pdf_bytes"] = f.read()
 
 # --- Input & UI ---
-# ✅ Parse inputs for instant preview and sufficiency check
+with st.expander("📐 Input Dimensions", expanded=True):
+    col1, col2 = st.columns(2)
+    with col1:
+        req_input = st.text_area("Required pieces (in m)", "", placeholder="Input data here")
+    with col2:
+        slab_input = st.text_area("Available slabs (in cm)", "60 320\n70 320\n80 320\n90 320\n100 320\n160 320")
+
+# ✅ Now parse them AFTER they're defined above
 required_preview_list = []
 for line in req_input.strip().splitlines():
     parts = line.strip().split()
