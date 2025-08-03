@@ -427,9 +427,6 @@ with st.sidebar:
     st.header("📦 Slab Check")
     check_slab_sufficiency(required_preview_list, available_preview_list)
 
-    st.markdown("---")
-
-
 if st.button("⚙️ Nest Slabs"):
     try:
         required = []
