@@ -104,109 +104,44 @@ def try_combo(required_pieces: List[Tuple[str, float, float]], combo: List[Tuple
 
     return results, pieces, used_slabs
 
-def nest_pieces_guillotine(required_pieces: List[Tuple[str, float, float]], available_slabs: List[Tuple[float, float]], use_smart_combo: bool = True, granite_mode: bool = False):
+def nest_pieces_guillotine(required_pieces: List[Tuple[str, float, float]], available_slabs: List[Tuple[float, float]], use_smart_combo: bool = True):
     def sort_slabs(slabs):
         return sorted(slabs, key=lambda x: x[0] * x[1])
+
+    def try_combo_wrapped(combo):
+        combo_list = list(combo) * 5
+        results, leftovers, used = try_combo(required_pieces, combo_list)
+        if not leftovers:
+            used_area = sum(w * h for w, h in used)
+            wastage = used_area - required_area
+            return wastage, (results, leftovers, used)
+        return float('inf'), None
 
     required_area = sum(w * h for _, w, h in required_pieces)
     sorted_slabs = sort_slabs(available_slabs)
 
-    if granite_mode:
-        # Granite mode: Use each slab once in order
-        results = []
-        used_slabs = []
-        pieces = sorted(required_pieces, key=lambda x: x[1] * x[2], reverse=True)
+    if not use_smart_combo:
+        return try_combo(required_pieces, available_slabs)
 
-        for slab in sorted_slabs:
-            sw, sh = slab
-            if sh > sw:
-                sw, sh = sh, sw
+    best_result = None
+    min_wastage = float('inf')
 
-            layout = []
-            free_spaces = [(0, 0, sw, sh)]
-            still_needed = []
+    with ThreadPoolExecutor() as executor:
+        futures = []
+        for r in range(1, min(len(sorted_slabs), 5) + 1):
+            for combo in combinations(sorted_slabs, r):
+                slab_area = sum(w * h for w, h in combo)
+                if slab_area < required_area:
+                    continue
+                futures.append(executor.submit(try_combo_wrapped, combo))
 
-            for name, pw, ph in pieces:
-                pos, dim = guillotine_split(free_spaces, pw, ph)
-                if pos:
-                    layout.append((name, pos, dim))
-                else:
-                    still_needed.append((name, pw, ph))
+        for future in as_completed(futures):
+            wastage, result = future.result()
+            if result and wastage < min_wastage:
+                min_wastage = wastage
+                best_result = result
 
-            if layout:
-                results.append(((sw, sh), layout))
-                used_slabs.append((sw, sh))
-
-            pieces = still_needed
-            if not pieces:
-                break
-
-        return results, pieces, used_slabs
-
-    else:
-        # Quartz mode (smart combo or regular)
-        def try_combo(required_pieces: List[Tuple[str, float, float]], combo: List[Tuple[float, float]]):
-            results = []
-            used_slabs = []
-            pieces = sorted(required_pieces, key=lambda x: x[1] * x[2], reverse=True)
-
-            for slab in combo:
-                sw, sh = slab
-                if sh > sw:
-                    sw, sh = sh, sw
-
-                layout = []
-                free_spaces = [(0, 0, sw, sh)]
-                still_needed = []
-
-                for name, pw, ph in pieces:
-                    pos, dim = guillotine_split(free_spaces, pw, ph)
-                    if pos:
-                        layout.append((name, pos, dim))
-                    else:
-                        still_needed.append((name, pw, ph))
-
-                if layout:
-                    results.append(((sw, sh), layout))
-                    used_slabs.append((sw, sh))
-                pieces = still_needed
-
-                if not pieces:
-                    break
-
-            return results, pieces, used_slabs
-
-        def try_combo_wrapped(combo):
-            combo_list = list(combo) * 5
-            results, leftovers, used = try_combo(required_pieces, combo_list)
-            if not leftovers:
-                used_area = sum(w * h for w, h in used)
-                wastage = used_area - required_area
-                return wastage, (results, leftovers, used)
-            return float('inf'), None
-
-        if not use_smart_combo:
-            return try_combo(required_pieces, available_slabs)
-
-        best_result = None
-        min_wastage = float('inf')
-
-        with ThreadPoolExecutor() as executor:
-            futures = []
-            for r in range(1, min(len(sorted_slabs), 5) + 1):
-                for combo in combinations(sorted_slabs, r):
-                    slab_area = sum(w * h for w, h in combo)
-                    if slab_area < required_area:
-                        continue
-                    futures.append(executor.submit(try_combo_wrapped, combo))
-
-            for future in as_completed(futures):
-                wastage, result = future.result()
-                if result and wastage < min_wastage:
-                    min_wastage = wastage
-                    best_result = result
-
-        return best_result if best_result else ([], required_pieces, [])
+    return best_result if best_result else ([], required_pieces, [])
 
 def draw_slab_layout(slab: tuple, layout: list):
     sw, sh = slab
@@ -373,40 +308,24 @@ with st.expander("📐 Input Dimensions", expanded=True):
     with col2:
         slab_input = st.text_area("Available slabs (in cm)", "60 320\n70 320\n80 320\n90 320\n100 320\n160 320")
 
-# ✅ Now parse them AFTER they're defined above
-required_preview_list = []
+required_area_preview = 0
+piece_count = 0
 for line in req_input.strip().splitlines():
     parts = line.strip().split()
     if len(parts) == 3:
-        name, w, h = parts[0], float(parts[1]) * 100, float(parts[2]) * 100
+        _, w, h = parts[0], float(parts[1]), float(parts[2])
     elif len(parts) == 2:
-        name, w, h = "", float(parts[0]) * 100, float(parts[1]) * 100
+        w, h = float(parts[0]), float(parts[1])
     else:
         continue
-    required_preview_list.append((name, w, h))
+    required_area_preview += w * h
+    piece_count += 1
 
-available_preview_list = []
-for line in slab_input.strip().splitlines():
-    try:
-        w, h = map(float, line.strip().split())
-        available_preview_list.append((w, h))
-    except:
-        continue
-
-# Sidebar with sufficiency check
 with st.sidebar:
-    # --- Mode Settings ---
-    st.header("⚙️ Settings")
-    mode = st.radio("Optimization Mode", ["Quartz", "Granite"], horizontal=True)
-    smart_combo = st.checkbox("💡 Smart Combo", value=True, disabled=(mode == "Granite"))
-
-    st.markdown("---")
-
-    # --- Summary ---
-    st.header("📊 Summary")
-    total_area_m2 = sum(w*h for _, w, h in required_preview_list) / 10000
-    st.metric("Total Area Required", f"{total_area_m2:.2f} m²")
-    st.metric("Number of Pieces", len(required_preview_list))
+    smart_combo = st.checkbox("💡 Smart Combo", value=True)
+    st.markdown("### 📊 Summary")
+    st.metric("Total Area Required", f"{required_area_preview:.2f} m²")
+    st.metric("Number of Required Slabs", piece_count)
 
 if st.button("⚙️ Nest Slabs"):
     try:
@@ -426,11 +345,7 @@ if st.button("⚙️ Nest Slabs"):
             w, h = map(float, line.strip().split())
             available.append((w, h))
 
-        results, leftovers, used_slabs = nest_pieces_guillotine(
-            required, available, 
-            use_smart_combo=smart_combo,
-            granite_mode=(mode == "Granite")
-        )
+        results, leftovers, used_slabs = nest_pieces_guillotine(required, available, use_smart_combo=smart_combo)
 
         total_used_area = sum(slab[0] * slab[1] for slab, _ in results)
         total_piece_area = sum(w * h for _, layout in results for (_, _, (w, h)) in layout)
