@@ -373,6 +373,7 @@ with st.expander("📐 Input Dimensions", expanded=True):
     with col2:
         slab_input = st.text_area("Available slabs (in cm)", "60 320\n70 320\n80 320\n90 320\n100 320\n160 320")
 
+# --- Calculate required pieces area ---
 required_area_preview = 0
 piece_count = 0
 for line in req_input.strip().splitlines():
@@ -386,13 +387,26 @@ for line in req_input.strip().splitlines():
     required_area_preview += w * h
     piece_count += 1
 
+# --- Calculate available slabs area ---
+available_area_preview = 0
+slab_count = 0
+for line in slab_input.strip().splitlines():
+    try:
+        w, h = map(float, line.strip().split())
+        available_area_preview += (w / 100) * (h / 100)  # convert cm² → m²
+        slab_count += 1
+    except:
+        continue
+
 with st.sidebar:
     mode = st.radio("⚙️ Optimization Mode", ["Quartz", "Granite"], horizontal=True)
     smart_combo = st.checkbox("💡 Smart Combo", value=True, disabled=(mode == "Granite"))
 
     st.markdown("### 📊 Summary")
     st.metric("Total Area Required", f"{required_area_preview:.2f} m²")
-    st.metric("Number of Required Slabs", piece_count)
+    st.metric("Number of Required Pieces", piece_count)
+    st.metric("Total Available Slab Area", f"{available_area_preview:.2f} m²")
+    st.metric("Number of Available Slabs", slab_count)
 
 if st.button("⚙️ Nest Slabs"):
     try:
