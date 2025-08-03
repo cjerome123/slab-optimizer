@@ -43,6 +43,19 @@ st.markdown(f"""
 </style>
 """, unsafe_allow_html=True)
 
+# ✅ Slab sufficiency check function
+def check_slab_sufficiency(required_pieces, available_slabs):
+    """Display slab sufficiency status in sidebar."""
+    required_area = sum(w * h for _, w, h in required_pieces)  # cm²
+    available_area = sum(w * h for w, h in available_slabs)    # cm²
+
+    if available_area >= required_area:
+        st.success(f"✅ Slabs are sufficient.\nRequired: {required_area/10000:.2f} m², "
+                   f"Available: {available_area/10000:.2f} m²")
+    else:
+        shortage = (required_area - available_area) / 10000
+        st.error(f"❌ Slabs are NOT enough.\nShort by {shortage:.2f} m²")
+
 st.title("SLAB OPTIMIZATION")
 
 def can_fit_any_rotation(piece: Tuple[float, float], space: Tuple[float, float]) -> Tuple[bool, Tuple[float, float]]:
@@ -366,33 +379,37 @@ def generate_pdf_report(results, total_used_area, total_piece_area, used_slabs, 
             st.session_state["pdf_bytes"] = f.read()
 
 # --- Input & UI ---
-with st.expander("📐 Input Dimensions", expanded=True):
-    col1, col2 = st.columns(2)
-    with col1:
-        req_input = st.text_area("Required pieces (in m)", "", placeholder="Input data here")
-    with col2:
-        slab_input = st.text_area("Available slabs (in cm)", "60 320\n70 320\n80 320\n90 320\n100 320\n160 320")
-
-required_area_preview = 0
-piece_count = 0
+# ✅ Parse inputs for instant preview and sufficiency check
+required_preview_list = []
 for line in req_input.strip().splitlines():
     parts = line.strip().split()
     if len(parts) == 3:
-        _, w, h = parts[0], float(parts[1]), float(parts[2])
+        name, w, h = parts[0], float(parts[1]) * 100, float(parts[2]) * 100
     elif len(parts) == 2:
-        w, h = float(parts[0]), float(parts[1])
+        name, w, h = "", float(parts[0]) * 100, float(parts[1]) * 100
     else:
         continue
-    required_area_preview += w * h
-    piece_count += 1
+    required_preview_list.append((name, w, h))
 
+available_preview_list = []
+for line in slab_input.strip().splitlines():
+    try:
+        w, h = map(float, line.strip().split())
+        available_preview_list.append((w, h))
+    except:
+        continue
+
+# Sidebar with sufficiency check
 with st.sidebar:
     mode = st.radio("⚙️ Optimization Mode", ["Quartz", "Granite"], horizontal=True)
     smart_combo = st.checkbox("💡 Smart Combo", value=True, disabled=(mode == "Granite"))
 
     st.markdown("### 📊 Summary")
-    st.metric("Total Area Required", f"{required_area_preview:.2f} m²")
-    st.metric("Number of Required Slabs", piece_count)
+    st.metric("Total Area Required", f"{sum(w*h for _, w, h in required_preview_list) / 10000:.2f} m²")
+    st.metric("Number of Required Pieces", len(required_preview_list))
+
+    st.markdown("### 📦 Slab Sufficiency Check")
+    check_slab_sufficiency(required_preview_list, available_preview_list)
 
 if st.button("⚙️ Nest Slabs"):
     try:
