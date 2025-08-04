@@ -246,69 +246,56 @@ def nest_pieces_guillotine(required_pieces: List[Tuple[str, float, float]], avai
 
 
     else:
-        # Quartz mode (smart combo or regular)
-        def try_combo(required_pieces: List[Tuple[str, float, float]], combo: List[Tuple[float, float]]):
+        # Quartz Mode (smart combo or regular)
+        def try_combo(required_pieces, combo):
             results = []
             used_slabs = []
             pieces = sorted(required_pieces, key=lambda x: x[1] * x[2], reverse=True)
-
+    
             for slab in combo:
                 sw, sh = slab
                 if sh > sw:
                     sw, sh = sh, sw
-
+    
                 layout = []
                 free_spaces = [(0, 0, sw, sh)]
                 still_needed = []
-
+    
                 for name, pw, ph in pieces:
                     pos, dim = guillotine_split(free_spaces, pw, ph)
                     if pos:
                         layout.append((name, pos, dim))
                     else:
                         still_needed.append((name, pw, ph))
-
+    
                 if layout:
                     results.append(((sw, sh), layout))
                     used_slabs.append((sw, sh))
                 pieces = still_needed
-
+    
                 if not pieces:
                     break
-
+    
             return results, pieces, used_slabs
-
+    
         def try_combo_wrapped(combo):
-            # Calculate total area of this combo in m²
-            combo_area = sum((w / 100) * (h / 100) for w, h in combo)  # m²
-        
-            # 1️⃣ Area-based repeats (ensures enough total surface area)
-            area_based_repeats = -(- (required_area / 10000) / combo_area)  # ceiling division
-        
-            # 2️⃣ Count-based repeats (ensures enough individual slabs for large pieces)
-            count_based_repeats = max(len(required_pieces) // len(combo), 1)
-        
-            # 3️⃣ Safety factor (+1) to handle awkward geometries
-            min_repeats = int(max(area_based_repeats, count_based_repeats) + 1)
-        
-            # Repeat slabs enough times to fit all pieces
-            combo_list = list(combo) * min_repeats
-        
+            # Repeat slabs dynamically based on how many pieces remain
+            max_repeats = max(2, (len(required_pieces) // len(combo)) + 1)
+            combo_list = list(combo) * max_repeats
             results, leftovers, used = try_combo(required_pieces, combo_list)
-        
             if not leftovers:
                 used_area = sum(w * h for w, h in used)
                 wastage = used_area - required_area
-                return (wastage, len(used)), (results, leftovers, used)
-        
-            return (float('inf'), float('inf')), None
-
+                wastage_per_piece = wastage / max(1, len(required_pieces))
+                return wastage_per_piece, (results, leftovers, used)
+            return float('inf'), None
+    
         if not use_smart_combo:
             return try_combo(required_pieces, available_slabs)
-
+    
         best_result = None
-        min_wastage = (float('inf'), float('inf'))  # (wastage, slab_count)
-
+        min_wastage_per_piece = float('inf')
+    
         with ThreadPoolExecutor() as executor:
             futures = []
             for r in range(1, min(len(sorted_slabs), 5) + 1):
@@ -317,19 +304,38 @@ def nest_pieces_guillotine(required_pieces: List[Tuple[str, float, float]], avai
                     if slab_area < required_area:
                         continue
                     futures.append(executor.submit(try_combo_wrapped, combo))
-
+    
             for future in as_completed(futures):
-                wastage, result = future.result()
-                if result:
-                    (waste, slab_count) = wastage
-                    (best_waste, best_slab_count) = min_wastage
+                wastage_per_piece, result = future.result()
+                if result and wastage_per_piece < min_wastage_per_piece:
+                    min_wastage_per_piece = wastage_per_piece
+                    best_result = result
+    
+        if best_result:
+            results, leftovers, used_slabs = best_result
+    
+            # Leftover shuffle pass
+            if leftovers:
+                leftover_queue = leftovers.copy()
+                for slab_index, (slab_size, layout) in enumerate(results):
+                    sw, sh = slab_size
+                    free_spaces = [(0, 0, sw, sh)]
+                    for _, (x, y), (w, h) in layout:
+                        free_spaces = [fs for fs in free_spaces if not (x >= fs[0] and y >= fs[1] and w <= fs[2] and h <= fs[3])]
+                    still_needed = []
+                    for piece in leftover_queue:
+                        pos, dim = guillotine_split(free_spaces, piece[1], piece[2])
+                        if pos:
+                            layout.append((piece[0], pos, dim))
+                        else:
+                            still_needed.append(piece)
+                    leftover_queue = still_needed
+                leftovers = leftover_queue
+    
+            return results, leftovers, used_slabs
+    
+        return ([], required_pieces, [])
 
-                    # Choose less waste, or fewer slabs if waste is equal
-                    if waste < best_waste or (waste == best_waste and slab_count < best_slab_count):
-                        min_wastage = (waste, slab_count)
-                        best_result = result
-
-        return best_result if best_result else ([], required_pieces, [])
         
 
 def draw_slab_layout(slab: tuple, layout: list):
