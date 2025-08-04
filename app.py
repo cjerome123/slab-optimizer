@@ -178,21 +178,27 @@ def nest_pieces_guillotine(required_pieces: List[Tuple[str, float, float]], avai
 
         def try_combo_wrapped(combo):
             # Calculate total area of this combo in m²
-            combo_area = sum((w / 100) * (h / 100) for w, h in combo)
-
-            # Compute the minimum number of repeats needed to cover required pieces
-            min_repeats = max(1, -(- (required_area / 10000) / combo_area))  # ceiling division, convert cm² → m²
-
+            combo_area = sum((w / 100) * (h / 100) for w, h in combo)  # m²
+        
+            # 1️⃣ Area-based repeats (ensures enough total surface area)
+            area_based_repeats = -(- (required_area / 10000) / combo_area)  # ceiling division
+        
+            # 2️⃣ Count-based repeats (ensures enough individual slabs for large pieces)
+            count_based_repeats = max(len(required_pieces) // len(combo), 1)
+        
+            # 3️⃣ Safety factor (+1) to handle awkward geometries
+            min_repeats = int(max(area_based_repeats, count_based_repeats) + 1)
+        
             # Repeat slabs enough times to fit all pieces
-            combo_list = list(combo) * int(min_repeats)
-
+            combo_list = list(combo) * min_repeats
+        
             results, leftovers, used = try_combo(required_pieces, combo_list)
-
+        
             if not leftovers:
                 used_area = sum(w * h for w, h in used)
                 wastage = used_area - required_area
                 return (wastage, len(used)), (results, leftovers, used)
-
+        
             return (float('inf'), float('inf')), None
 
         if not use_smart_combo:
