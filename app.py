@@ -246,108 +246,57 @@ def nest_pieces_guillotine(required_pieces: List[Tuple[str, float, float]], avai
 
 
     else:
-        # Quartz Mode - Infinite supply, optimized for minimal waste
-        def sort_pieces_smart(pieces, slabs):
-            """Sort pieces by how tightly they fit into available slabs."""
-            def fit_score(piece):
-                pw, ph = piece[1], piece[2]
-                best_waste = float('inf')
-                for sw, sh in slabs:
-                    for dims in [(pw, ph), (ph, pw)]:
-                        if dims[0] <= sw and dims[1] <= sh:
-                            waste = (sw * sh) - (dims[0] * dims[1])
-                            best_waste = min(best_waste, waste)
-                return best_waste
-            return sorted(pieces, key=lambda p: (fit_score(p), -(p[1] * p[2])))
-    
-        def fill_best_slab(pieces, slabs):
-            """Find the slab that fits pieces best with minimal waste and lookahead."""
-            best_slab = None
-            best_layout = []
-            best_leftovers = pieces
-            best_wastage = float('inf')
-    
-            for sw, sh in slabs:
-                if sh > sw:
-                    sw, sh = sh, sw
-                free_spaces = [(0, 0, sw, sh)]
-                layout = []
-                still_needed = []
-    
-                # Primary fit
-                for name, pw, ph in sort_pieces_smart(pieces, slabs):
-                    pos, dim = guillotine_split(free_spaces, pw, ph)
-                    if pos:
-                        layout.append((name, pos, dim))
-                    else:
-                        still_needed.append((name, pw, ph))
-    
-                # Leftover gap fill pass
-                gap_fill_pieces = still_needed[:]
-                for name, pw, ph in sorted(gap_fill_pieces, key=lambda x: x[1] * x[2], reverse=True):
-                    pos, dim = guillotine_split(free_spaces, pw, ph)
-                    if pos:
-                        layout.append((name, pos, dim))
-                        still_needed.remove((name, pw, ph))
-    
-                # Calculate wastage
-                used_area = sum(w * h for _, _, (w, h) in layout)
-                wastage = (sw * sh) - used_area
-    
-                # Penalize oversized slab if very little is left to cut
-                total_needed_area = sum(w * h for _, w, h in pieces)
-                if sw * sh > total_needed_area * 1.5:
-                    wastage += sw * sh  # large penalty
-    
-                # Lookahead: simulate filling next slab with leftovers
-                if still_needed:
-                    next_slab, _, next_leftovers = basic_fill(still_needed, slabs)
-                    next_waste = sum(w * h for w, h in slabs) if not next_slab else (next_slab[0] * next_slab[1])
-                    wastage += next_waste / 10  # small penalty for bad future fit
-    
-                # Choose best slab
-                if len(still_needed) < len(best_leftovers) or (
-                    len(still_needed) == len(best_leftovers) and wastage < best_wastage
-                ):
-                    best_slab = (sw, sh)
-                    best_layout = layout
-                    best_leftovers = still_needed
-                    best_wastage = wastage
-    
-            return best_slab, best_layout, best_leftovers
-    
-        def basic_fill(pieces, slabs):
-            """Simple fill to help lookahead logic."""
-            for sw, sh in slabs:
-                if sh > sw:
-                    sw, sh = sh, sw
-                free_spaces = [(0, 0, sw, sh)]
-                layout = []
-                still_needed = []
-                for name, pw, ph in pieces:
-                    pos, dim = guillotine_split(free_spaces, pw, ph)
-                    if pos:
-                        layout.append((name, pos, dim))
-                    else:
-                        still_needed.append((name, pw, ph))
-                return (sw, sh), layout, still_needed
-            return None, [], pieces
-    
-        def try_infinite_supply_optimized(required_pieces, slabs):
-            pieces = sort_pieces_smart(required_pieces, slabs)
+        # Quartz Mode - Infinite supply of each available slab size
+        def try_infinite_supply(required_pieces, slabs):
+            pieces = sorted(required_pieces, key=lambda x: x[1] * x[2], reverse=True)
             results = []
             used_slabs = []
     
             while pieces:
-                slab, layout, pieces = fill_best_slab(pieces, slabs)
-                if not slab:
+                best_slab = None
+                best_layout = []
+                best_leftovers = pieces
+                best_wastage = float('inf')
+    
+                # Try each slab size to see which gives minimal leftover waste
+                for sw, sh in slabs:
+                    if sh > sw:
+                        sw, sh = sh, sw
+    
+                    free_spaces = [(0, 0, sw, sh)]
+                    layout = []
+                    still_needed = []
+    
+                    for name, pw, ph in pieces:
+                        pos, dim = guillotine_split(free_spaces, pw, ph)
+                        if pos:
+                            layout.append((name, pos, dim))
+                        else:
+                            still_needed.append((name, pw, ph))
+    
+                    used_area = sum(w * h for _, _, (w, h) in layout)
+                    wastage = (sw * sh) - used_area
+    
+                    # Pick slab with least leftovers, then least wastage
+                    if len(still_needed) < len(best_leftovers) or (
+                        len(still_needed) == len(best_leftovers) and wastage < best_wastage
+                    ):
+                        best_slab = (sw, sh)
+                        best_layout = layout
+                        best_leftovers = still_needed
+                        best_wastage = wastage
+    
+                if not best_slab:  # No fit found
                     break
-                results.append((slab, layout))
-                used_slabs.append(slab)
+    
+                results.append((best_slab, best_layout))
+                used_slabs.append(best_slab)
+                pieces = best_leftovers
     
             return results, pieces, used_slabs
     
-        return try_infinite_supply_optimized(required_pieces, available_slabs)
+        return try_infinite_supply(required_pieces, available_slabs)
+
 
 
         
