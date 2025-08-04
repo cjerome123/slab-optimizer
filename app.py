@@ -73,22 +73,24 @@ def guillotine_split(free_spaces: List[Tuple[float, float, float, float]],
 def sort_pieces(pieces: List[Tuple[float, float]]) -> List[Tuple[float, float]]:
     return sorted(pieces, key=lambda x: x[0] * x[1], reverse=True)
 
-def sort_pieces_min_waste(pieces, slabs):
-    def fit_score(piece):
+def sort_pieces_min_waste_hybrid(pieces, slabs):
+    def fit_stats(piece):
         pw, ph = piece[1], piece[2]
+        fitting_slabs = 0
         best_waste_ratio = float('inf')
         for sw, sh in slabs:
             slab_area = sw * sh
             for dims in [(pw, ph), (ph, pw)]:
                 if dims[0] <= sw and dims[1] <= sh:
+                    fitting_slabs += 1
                     waste_ratio = (slab_area - (dims[0] * dims[1])) / slab_area
                     best_waste_ratio = min(best_waste_ratio, waste_ratio)
-        return best_waste_ratio
+        return fitting_slabs, best_waste_ratio
 
-    # Sort by minimum waste ratio first, then largest area
+    # Sort by fewest fitting slabs, then lowest waste ratio, then largest area
     return sorted(
         pieces,
-        key=lambda p: (fit_score(p), -(p[1] * p[2]))
+        key=lambda p: (fit_stats(p)[0], fit_stats(p)[1], -(p[1] * p[2]))
     )
 
 def try_combo(required_pieces: List[Tuple[str, float, float]], combo: List[Tuple[float, float]]):
@@ -139,7 +141,7 @@ def nest_pieces_guillotine(required_pieces: List[Tuple[str, float, float]], avai
         results = []
         used_slabs = []
         # Optimization #1: Sort by longest side first, then by area
-        pieces = sort_pieces_min_waste(required_pieces, unique_slabs)
+        pieces = sort_pieces_min_waste_hybrid(required_pieces, unique_slabs)
     
         # Prepare slab states
         slab_states = []
