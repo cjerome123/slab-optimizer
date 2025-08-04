@@ -73,18 +73,19 @@ def guillotine_split(free_spaces: List[Tuple[float, float, float, float]],
 def sort_pieces(pieces: List[Tuple[float, float]]) -> List[Tuple[float, float]]:
     return sorted(pieces, key=lambda x: x[0] * x[1], reverse=True)
 
-def sort_pieces_smart(pieces, slabs):
+def sort_pieces_min_waste(pieces, slabs):
     def fit_score(piece):
         pw, ph = piece[1], piece[2]
-        best_waste = float('inf')
+        best_waste_ratio = float('inf')
         for sw, sh in slabs:
+            slab_area = sw * sh
             for dims in [(pw, ph), (ph, pw)]:
                 if dims[0] <= sw and dims[1] <= sh:
-                    waste = (sw * sh) - (dims[0] * dims[1])
-                    best_waste = min(best_waste, waste)
-        return best_waste
+                    waste_ratio = (slab_area - (dims[0] * dims[1])) / slab_area
+                    best_waste_ratio = min(best_waste_ratio, waste_ratio)
+        return best_waste_ratio
 
-    # Sort by least fitting options first, then by largest area
+    # Sort by minimum waste ratio first, then largest area
     return sorted(
         pieces,
         key=lambda p: (fit_score(p), -(p[1] * p[2]))
@@ -138,7 +139,7 @@ def nest_pieces_guillotine(required_pieces: List[Tuple[str, float, float]], avai
         results = []
         used_slabs = []
         # Optimization #1: Sort by longest side first, then by area
-        pieces = sort_pieces_smart(required_pieces, unique_slabs)
+        pieces = sort_pieces_min_waste(required_pieces, unique_slabs)
     
         # Prepare slab states
         slab_states = []
