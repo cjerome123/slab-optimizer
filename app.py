@@ -180,6 +180,45 @@ def nest_pieces_guillotine(required_pieces: List[Tuple[str, float, float]], avai
                 best_slab["used_area"] += best_slab_dim[0] * best_slab_dim[1]
             else:
                 leftovers.append((name, pw, ph))
+
+        # --- Leftover shuffle pass ---
+        if leftovers:
+            new_leftovers = []
+            for name, pw, ph in leftovers:
+                placed = False
+                for slab_state in slab_states:
+                    pos, dim = guillotine_split(slab_state["free_spaces"], pw, ph)
+                    if not pos:  # Try rotated
+                        pos, dim = guillotine_split(slab_state["free_spaces"], ph, pw)
+                    if pos:
+                        slab_state["layout"].append((name, pos, dim))
+                        slab_state["used_area"] += dim[0] * dim[1]
+                        placed = True
+                        break
+                if not placed:
+                    new_leftovers.append((name, pw, ph))
+            leftovers = new_leftovers
+        
+        # --- Fill leftover gaps ---
+        if leftovers:
+            # Sort leftovers smallest first for gap filling
+            leftovers.sort(key=lambda x: x[1] * x[2])
+            gap_filled_leftovers = []
+            for name, pw, ph in leftovers:
+                placed = False
+                for slab_state in slab_states:
+                    pos, dim = guillotine_split(slab_state["free_spaces"], pw, ph)
+                    if not pos:
+                        pos, dim = guillotine_split(slab_state["free_spaces"], ph, pw)
+                    if pos:
+                        slab_state["layout"].append((name, pos, dim))
+                        slab_state["used_area"] += dim[0] * dim[1]
+                        placed = True
+                        break
+                if not placed:
+                    gap_filled_leftovers.append((name, pw, ph))
+            leftovers = gap_filled_leftovers
+
     
         # --- Build results ---
         for slab_state in slab_states:
