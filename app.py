@@ -132,24 +132,21 @@ def nest_pieces_guillotine(required_pieces: List[Tuple[str, float, float]], avai
                 "size": (sw, sh),
                 "free_spaces": [(0, 0, sw, sh)],
                 "layout": [],
-                "used_area": 0,
-                "used_flag": False
+                "used_area": 0
             })
     
         leftovers = []
     
-        # --- Step 1: Large-piece priority placement ---
+        # --- Step 1: Fill slabs with as many pieces as possible ---
         for name, pw, ph in pieces:
             placed = False
+            # Try slabs that still have space, smallest used_area first
             for slab_state in sorted(slab_states, key=lambda s: s["used_area"]):
-                if slab_state["used_flag"]:
-                    continue
                 for dims in [(pw, ph), (ph, pw)]:
                     pos, dim = guillotine_split(slab_state["free_spaces"], *dims)
                     if pos:
                         slab_state["layout"].append((name, pos, dim))
                         slab_state["used_area"] += dim[0] * dim[1]
-                        slab_state["used_flag"] = True
                         placed = True
                         break
                 if placed:
@@ -157,42 +154,16 @@ def nest_pieces_guillotine(required_pieces: List[Tuple[str, float, float]], avai
             if not placed:
                 leftovers.append((name, pw, ph))
     
-        # --- Step 2: Rebalance slabs (only unused slabs) ---
-        for piece in leftovers[:]:
-            name, pw, ph = piece
-            best_slab = None
-            best_fit_ratio = 0
-            for slab_state in slab_states:
-                if slab_state["used_flag"]:
-                    continue
-                for dims in [(pw, ph), (ph, pw)]:
-                    fits, _ = can_fit_any_rotation(dims, slab_state["size"])
-                    if fits:
-                        ratio = (dims[0] * dims[1]) / (slab_state["size"][0] * slab_state["size"][1])
-                        if ratio > best_fit_ratio:
-                            best_fit_ratio = ratio
-                            best_slab = slab_state
-            if best_slab:
-                pos, dim = guillotine_split(best_slab["free_spaces"], pw, ph)
-                if pos:
-                    best_slab["layout"].append((name, pos, dim))
-                    best_slab["used_area"] += dim[0] * dim[1]
-                    best_slab["used_flag"] = True
-                    leftovers.remove(piece)
-    
-        # --- Step 3: Small-piece packing (still unused slabs) ---
+        # --- Step 2: Try to place leftovers in any partially filled slab ---
         final_leftovers = []
         for name, pw, ph in leftovers:
             placed = False
             for slab_state in sorted(slab_states, key=lambda s: s["used_area"]):
-                if slab_state["used_flag"]:
-                    continue
                 for dims in [(pw, ph), (ph, pw)]:
                     pos, dim = guillotine_split(slab_state["free_spaces"], *dims)
                     if pos:
                         slab_state["layout"].append((name, pos, dim))
                         slab_state["used_area"] += dim[0] * dim[1]
-                        slab_state["used_flag"] = True
                         placed = True
                         break
                 if placed:
@@ -200,7 +171,7 @@ def nest_pieces_guillotine(required_pieces: List[Tuple[str, float, float]], avai
             if not placed:
                 final_leftovers.append((name, pw, ph))
     
-        # --- Step 4: Build results ---
+        # --- Step 3: Build results ---
         for slab_state in slab_states:
             if slab_state["layout"]:
                 results.append((slab_state["size"], slab_state["layout"]))
