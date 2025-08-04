@@ -112,7 +112,7 @@ def nest_pieces_guillotine(required_pieces: List[Tuple[str, float, float]], avai
     sorted_slabs = sort_slabs(available_slabs)
 
     if granite_mode:
-        # --- Remove duplicate slab sizes (only 1 physical slab per size) ---
+        # --- Remove duplicate slab sizes (only 1 physical slab per entry) ---
         unique_slabs = []
         for slab in available_slabs:
             if slab not in unique_slabs:
@@ -137,47 +137,43 @@ def nest_pieces_guillotine(required_pieces: List[Tuple[str, float, float]], avai
     
         leftovers = []
     
-        # --- Step 1: Fill slabs with as many pieces as possible ---
+        # --- Best Fit Decreasing placement ---
         for name, pw, ph in pieces:
-            placed = False
-            # Try slabs that still have space, smallest used_area first
-            for slab_state in sorted(slab_states, key=lambda s: s["used_area"]):
+            best_slab = None
+            best_slab_pos = None
+            best_slab_dim = None
+            min_waste = float('inf')
+    
+            for slab_state in slab_states:
                 for dims in [(pw, ph), (ph, pw)]:
-                    pos, dim = guillotine_split(slab_state["free_spaces"], *dims)
+                    # Make a copy of free spaces to test fit
+                    test_spaces = list(slab_state["free_spaces"])
+                    pos, dim = guillotine_split(test_spaces, *dims)
                     if pos:
-                        slab_state["layout"].append((name, pos, dim))
-                        slab_state["used_area"] += dim[0] * dim[1]
-                        placed = True
-                        break
-                if placed:
-                    break
-            if not placed:
+                        used_area_after = slab_state["used_area"] + dim[0] * dim[1]
+                        slab_area = slab_state["size"][0] * slab_state["size"][1]
+                        waste = slab_area - used_area_after
+                        if waste < min_waste:
+                            min_waste = waste
+                            best_slab = slab_state
+                            best_slab_pos = pos
+                            best_slab_dim = dim
+    
+            if best_slab:
+                # Actually place piece in the chosen slab
+                guillotine_split(best_slab["free_spaces"], *best_slab_dim)
+                best_slab["layout"].append((name, best_slab_pos, best_slab_dim))
+                best_slab["used_area"] += best_slab_dim[0] * best_slab_dim[1]
+            else:
                 leftovers.append((name, pw, ph))
     
-        # --- Step 2: Try to place leftovers in any partially filled slab ---
-        final_leftovers = []
-        for name, pw, ph in leftovers:
-            placed = False
-            for slab_state in sorted(slab_states, key=lambda s: s["used_area"]):
-                for dims in [(pw, ph), (ph, pw)]:
-                    pos, dim = guillotine_split(slab_state["free_spaces"], *dims)
-                    if pos:
-                        slab_state["layout"].append((name, pos, dim))
-                        slab_state["used_area"] += dim[0] * dim[1]
-                        placed = True
-                        break
-                if placed:
-                    break
-            if not placed:
-                final_leftovers.append((name, pw, ph))
-    
-        # --- Step 3: Build results ---
+        # --- Build results ---
         for slab_state in slab_states:
             if slab_state["layout"]:
                 results.append((slab_state["size"], slab_state["layout"]))
                 used_slabs.append(slab_state["size"])
     
-        return results, final_leftovers, used_slabs
+        return results, leftovers, used_slabs
 
 
     else:
