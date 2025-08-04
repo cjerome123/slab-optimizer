@@ -108,7 +108,7 @@ def nest_pieces_guillotine(required_pieces: List[Tuple[str, float, float]], avai
     def sort_slabs(slabs):
         return sorted(slabs, key=lambda x: x[0] * x[1])
 
-    required_area = sum(w * h for _, w, h in required_pieces)
+    required_area = sum(w * h for _, w, h in required_pieces)  # cm²
     sorted_slabs = sort_slabs(available_slabs)
 
     if granite_mode:
@@ -177,19 +177,29 @@ def nest_pieces_guillotine(required_pieces: List[Tuple[str, float, float]], avai
             return results, pieces, used_slabs
 
         def try_combo_wrapped(combo):
-            combo_list = list(combo) * 5
+            # Calculate total area of this combo in m²
+            combo_area = sum((w / 100) * (h / 100) for w, h in combo)
+
+            # Compute the minimum number of repeats needed to cover required pieces
+            min_repeats = max(1, -(- (required_area / 10000) / combo_area))  # ceiling division, convert cm² → m²
+
+            # Repeat slabs enough times to fit all pieces
+            combo_list = list(combo) * int(min_repeats)
+
             results, leftovers, used = try_combo(required_pieces, combo_list)
+
             if not leftovers:
                 used_area = sum(w * h for w, h in used)
                 wastage = used_area - required_area
-                return wastage, (results, leftovers, used)
-            return float('inf'), None
+                return (wastage, len(used)), (results, leftovers, used)
+
+            return (float('inf'), float('inf')), None
 
         if not use_smart_combo:
             return try_combo(required_pieces, available_slabs)
 
         best_result = None
-        min_wastage = float('inf')
+        min_wastage = (float('inf'), float('inf'))  # (wastage, slab_count)
 
         with ThreadPoolExecutor() as executor:
             futures = []
@@ -202,11 +212,17 @@ def nest_pieces_guillotine(required_pieces: List[Tuple[str, float, float]], avai
 
             for future in as_completed(futures):
                 wastage, result = future.result()
-                if result and wastage < min_wastage:
-                    min_wastage = wastage
-                    best_result = result
+                if result:
+                    (waste, slab_count) = wastage
+                    (best_waste, best_slab_count) = min_wastage
+
+                    # Choose less waste, or fewer slabs if waste is equal
+                    if waste < best_waste or (waste == best_waste and slab_count < best_slab_count):
+                        min_wastage = (waste, slab_count)
+                        best_result = result
 
         return best_result if best_result else ([], required_pieces, [])
+        
 
 def draw_slab_layout(slab: tuple, layout: list):
     sw, sh = slab
