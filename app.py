@@ -248,7 +248,7 @@ def nest_pieces_guillotine(required_pieces: List[Tuple[str, float, float]], avai
     else:
         # Quartz mode (smart combo or regular)
         def try_combo(required_pieces: List[Tuple[str, float, float]], combo: List[Tuple[float, float]]):
-        results = []
+            results = []
         used_slabs = []
         # ✅ Smart sorting like Granite mode
         pieces = sort_pieces_min_waste_hybrid(required_pieces, combo)
