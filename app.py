@@ -250,7 +250,7 @@ def nest_pieces_guillotine(required_pieces: List[Tuple[str, float, float]], avai
         def try_combo(required_pieces: List[Tuple[str, float, float]], combo: List[Tuple[float, float]]):
             results = []
             used_slabs = []
-            pieces = sorted(required_pieces, key=lambda x: x[1] * x[2], reverse=True)
+            pieces = sort_pieces_min_waste_hybrid(required_pieces, combo)
 
             for slab in combo:
                 sw, sh = slab
