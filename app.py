@@ -249,64 +249,34 @@ def nest_pieces_guillotine(required_pieces: List[Tuple[str, float, float]], avai
         # Quartz mode (smart combo or regular)
         def try_combo(required_pieces: List[Tuple[str, float, float]], combo: List[Tuple[float, float]]):
             results = []
-        used_slabs = []
-        # ✅ Smart sorting like Granite mode
-        pieces = sort_pieces_min_waste_hybrid(required_pieces, combo)
-    
-        for slab in combo:
-            sw, sh = slab
-            if sh > sw:
-                sw, sh = sh, sw
-    
-            layout = []
-            free_spaces = [(0, 0, sw, sh)]
-            still_needed = []
-    
-            for name, pw, ph in pieces:
-                pos, dim = guillotine_split(free_spaces, pw, ph)
-                if pos:
-                    layout.append((name, pos, dim))
-                else:
-                    still_needed.append((name, pw, ph))
-    
-            if layout:
-                results.append(((sw, sh), layout))
-                used_slabs.append((sw, sh))
-            pieces = still_needed
-    
-            if not pieces:
-                break
-    
-        # ✅ Leftover shuffle pass
-        if pieces:
-            leftovers = pieces
-            new_leftovers = []
-            for name, pw, ph in leftovers:
-                placed = False
-                for slab_size, layout in results:
-                    free_spaces = []  # Rebuild free space map from layout
-                    sw, sh = slab_size
-                    free_spaces = [(0, 0, sw, sh)]
-                    for _, pos, dim in layout:
-                        px, py = pos
-                        dw, dh = dim
-                        # Remove used space
-                        free_spaces = [(fx, fy, fw, fh) for fx, fy, fw, fh in free_spaces
-                                       if not (fx == px and fy == py and fw == dw and fh == dh)]
-                    # Try placing leftover
+            used_slabs = []
+            pieces = sorted(required_pieces, key=lambda x: x[1] * x[2], reverse=True)
+
+            for slab in combo:
+                sw, sh = slab
+                if sh > sw:
+                    sw, sh = sh, sw
+
+                layout = []
+                free_spaces = [(0, 0, sw, sh)]
+                still_needed = []
+
+                for name, pw, ph in pieces:
                     pos, dim = guillotine_split(free_spaces, pw, ph)
-                    if not pos:
-                        pos, dim = guillotine_split(free_spaces, ph, pw)
                     if pos:
                         layout.append((name, pos, dim))
-                        placed = True
-                        break
-                if not placed:
-                    new_leftovers.append((name, pw, ph))
-            pieces = new_leftovers
-    
-        return results, pieces, used_slabs
+                    else:
+                        still_needed.append((name, pw, ph))
 
+                if layout:
+                    results.append(((sw, sh), layout))
+                    used_slabs.append((sw, sh))
+                pieces = still_needed
+
+                if not pieces:
+                    break
+
+            return results, pieces, used_slabs
 
         def try_combo_wrapped(combo):
             # Calculate total area of this combo in m²
