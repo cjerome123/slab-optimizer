@@ -112,14 +112,19 @@ def nest_pieces_guillotine(required_pieces: List[Tuple[str, float, float]], avai
     sorted_slabs = sort_slabs(available_slabs)
 
     if granite_mode:
-        # --- Enhanced Granite Mode with one-use slabs ---
+        # --- Remove duplicate slab sizes (only 1 physical slab per size) ---
+        unique_slabs = []
+        for slab in available_slabs:
+            if slab not in unique_slabs:
+                unique_slabs.append(slab)
+    
         results = []
         used_slabs = []
         pieces = sorted(required_pieces, key=lambda x: x[1] * x[2], reverse=True)  # largest first
     
         # Prepare slab states
         slab_states = []
-        for slab in available_slabs:
+        for slab in unique_slabs:
             sw, sh = slab
             if sh > sw:
                 sw, sh = sh, sw
@@ -152,7 +157,7 @@ def nest_pieces_guillotine(required_pieces: List[Tuple[str, float, float]], avai
             if not placed:
                 leftovers.append((name, pw, ph))
     
-        # --- Step 2: Rebalance slabs (only slabs still unused) ---
+        # --- Step 2: Rebalance slabs (only unused slabs) ---
         for piece in leftovers[:]:
             name, pw, ph = piece
             best_slab = None
@@ -202,7 +207,6 @@ def nest_pieces_guillotine(required_pieces: List[Tuple[str, float, float]], avai
                 used_slabs.append(slab_state["size"])
     
         return results, final_leftovers, used_slabs
-
 
 
     else:
