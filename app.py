@@ -158,7 +158,7 @@ def nest_pieces_guillotine(required_pieces: List[Tuple[str, float, float]], avai
     
         leftovers = []
     
-        # --- Best Fit Decreasing with tie-breaker ---
+        # --- Best Fit Decreasing with tie-breaker --
         for name, pw, ph in pieces:
             # Optimization #2: Early stop check
             remaining_area = sum(s["size"][0] * s["size"][1] - s["used_area"] for s in slab_states)
